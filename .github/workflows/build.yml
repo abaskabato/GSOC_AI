@@ -59,15 +59,19 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: brew install create-dmg
 
-      - name: Build Tauri app
+      - name: Build Tauri app (with target)
+        if: matrix.target != ''
         working-directory: gsoc-ai
         shell: bash
-        run: |
-          if [ -n "${{ matrix.target }}" ]; then
-            npm run tauri build --target "${{ matrix.target }}"
-          else
-            npm run tauri build
-          fi
+        run: npm run tauri build --target "${{ matrix.target }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Tauri app (no target)
+        if: matrix.target == ''
+        working-directory: gsoc-ai
+        shell: bash
+        run: npm run tauri build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
