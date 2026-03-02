@@ -61,7 +61,13 @@ jobs:
 
       - name: Build Tauri app
         working-directory: gsoc-ai
-        run: npm run tauri build --target "${{ matrix.target }}"
+        shell: bash
+        run: |
+          if [ -n "${{ matrix.target }}" ]; then
+            npm run tauri build --target "${{ matrix.target }}"
+          else
+            npm run tauri build
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
