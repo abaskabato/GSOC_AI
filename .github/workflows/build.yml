@@ -61,6 +61,7 @@ jobs:
 
       - name: Build Tauri app
         working-directory: gsoc-ai
+        shell: bash
         run: |
           if [ -n "${{ matrix.target }}" ]; then
             npm run tauri build -- --target "${{ matrix.target }}"
