@@ -39,6 +39,8 @@ jobs:
         with:
           path: gsoc-ai/node_modules
           key: ${{ runner.os }}-npm-${{ hashFiles('gsoc-ai/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
 
       - name: Install frontend dependencies
         working-directory: gsoc-ai
@@ -78,7 +80,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: gsoc-ai-${{ matrix.platform }}${{ matrix.target != '' && format('- {0}', matrix.target) || '' }}
+          name: gsoc-ai-${{ matrix.platform }}-${{ matrix.target || 'windows' }}
           path: |
             gsoc-ai/src-tauri/target/release/bundle/**/*.dmg
             gsoc-ai/src-tauri/target/release/bundle/**/*.exe
