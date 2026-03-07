@@ -8,6 +8,8 @@ import type { Incident } from '../types';
 import { exportToCSV } from '../utils/export';
 import { triageIncident, type TriageResult } from '../utils/ai';
 import { notifySlack } from '../utils/slack';
+import { sendAlertMediaNotification, pushToSplunk, pushToSentinel, sendEverbridgeAlert } from '../utils/integrations';
+import { getIntegrationByType } from '../utils/getIntegration';
 
 export default function TriageLog() {
   const {
@@ -175,23 +177,61 @@ export default function TriageLog() {
   const handleEscalate = (id: string, action: string) => {
     updateIncident(id, {
       escalation: { action, timestamp: new Date().toISOString() },
-      status: 'escalated'
+      status: 'escalated',
     });
-    // Notify Slack if configured
+
+    const inc = incidents.find(i => i.id === id);
+    if (!inc) return;
+    const location = businessLocations.find(l => l.id === inc.affectedLocation);
+    const locationName = location?.name || inc.affectedLocation;
+    const timestamp = format(new Date(), 'PPpp');
+    const incidentWithId = { ...inc, id };
+
+    // Slack
     if (apiKeys.slackWebhookUrl) {
-      const inc = incidents.find(i => i.id === id);
-      if (inc) {
-        const location = businessLocations.find(l => l.id === inc.affectedLocation);
-        notifySlack(apiKeys.slackWebhookUrl, {
-          incidentId: inc.id,
-          location: location?.name || inc.affectedLocation,
-          details: inc.details,
-          escalationAction: action,
-          resolver: inc.resolverInitials || currentUser?.username || 'unknown',
-          timestamp: format(new Date(), 'PPpp'),
-        }).catch(() => {/* silent — Slack is best-effort */});
-      }
+      notifySlack(apiKeys.slackWebhookUrl, {
+        incidentId: inc.id, location: locationName, details: inc.details,
+        escalationAction: action,
+        resolver: inc.resolverInitials || currentUser?.username || 'unknown',
+        timestamp,
+      }).catch(() => {});
     }
+
+    // AlertMedia — mass notification to employees at affected location
+    getIntegrationByType('alertmedia').then(cfg => {
+      if (!cfg) return;
+      const groupIds = cfg.group_ids
+        ? cfg.group_ids.split(',').map((g: string) => g.trim()).filter(Boolean)
+        : undefined;
+      sendAlertMediaNotification(
+        cfg,
+        `Security Incident Escalated — ${locationName}`,
+        `Action Required: ${action}\n\nLocation: ${locationName}\nDetails: ${inc.details.slice(0, 500)}\nTime: ${timestamp}`,
+        groupIds,
+      ).catch(() => {});
+    });
+
+    // Everbridge — alternative mass notification
+    getIntegrationByType('everbridge').then(cfg => {
+      if (!cfg) return;
+      sendEverbridgeAlert(
+        cfg,
+        `GSOC Alert: ${locationName}`,
+        `Escalation: ${action}\n${inc.details.slice(0, 500)}`,
+      ).catch(() => {});
+    });
+
+    // Splunk — push to SIEM index
+    getIntegrationByType('splunk').then(cfg => {
+      if (!cfg) return;
+      pushToSplunk(cfg, incidentWithId, locationName).catch(() => {});
+    });
+
+    // Microsoft Sentinel — push to custom log table
+    getIntegrationByType('sentinel').then(cfg => {
+      if (!cfg) return;
+      pushToSentinel(cfg, incidentWithId, locationName).catch(() => {});
+    });
   };
 
   const handleAiTriage = async (incident: Incident) => {
