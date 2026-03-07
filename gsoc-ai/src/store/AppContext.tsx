@@ -14,6 +14,15 @@ import type {
   VoIPStatus
 } from '../types';
 
+export interface LicenseInfo {
+  valid: boolean;
+  plan?: string;
+  org?: string;
+  email?: string;
+  trialEndsAt?: string;
+  reason?: string;
+}
+
 export interface ApiKeys {
   anthropicKey: string;
   slackWebhookUrl: string;
@@ -77,6 +86,9 @@ interface AppContextType {
   setEscalationActions: (actions: string[]) => void;
   apiKeys: ApiKeys;
   setApiKeys: (keys: ApiKeys) => void;
+  licenseKey: string;
+  licenseInfo: LicenseInfo | null;
+  activateLicense: (key: string) => Promise<LicenseInfo>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -180,6 +192,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [dismissalReasons, setDismissalReasonsState] = useState<string[]>([]);
   const [escalationActions, setEscalationActionsState] = useState<string[]>([]);
   const [apiKeys, setApiKeysState] = useState<ApiKeys>(DEFAULT_API_KEYS);
+  const [licenseKey, setLicenseKeyState] = useState('');
+  const [licenseInfo, setLicenseInfo] = useState<LicenseInfo | null>(null);
 
   const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -237,6 +251,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const ak = get('apiKeys');
       if (ak) setApiKeysState(JSON.parse(ak));
+
+      const lk = get('licenseKey');
+      if (lk) {
+        setLicenseKeyState(lk);
+        // Re-validate stored license silently on launch
+        import('../utils/license').then(({ validateLicense }) =>
+          validateLicense(lk).then(setLicenseInfo).catch(() => null)
+        );
+      }
     });
   }, []);
 
@@ -520,6 +543,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ));
   };
 
+  const activateLicense = async (key: string): Promise<LicenseInfo> => {
+    const { validateLicense } = await import('../utils/license');
+    const info = await validateLicense(key);
+    setLicenseInfo(info);
+    if (info.valid) {
+      setLicenseKeyState(key.trim().toUpperCase());
+      await getDb().then(db => db.execute(
+        "INSERT INTO settings(key,value) VALUES('licenseKey',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        [key.trim().toUpperCase()]
+      ));
+    }
+    return info;
+  };
+
   return (
     <AppContext.Provider value={{
       incidents, addIncident, updateIncident, deleteIncident,
@@ -537,6 +574,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dismissalReasons, setDismissalReasons,
       escalationActions, setEscalationActions,
       apiKeys, setApiKeys,
+      licenseKey, licenseInfo, activateLicense,
     }}>
       {children}
     </AppContext.Provider>

@@ -16,12 +16,17 @@ export default function Settings() {
     escalationActions, setEscalationActions,
     cameraSources, addCameraSource, updateCameraSource, deleteCameraSource,
     apiKeys, setApiKeys,
+    licenseKey, licenseInfo, activateLicense,
   } = useApp();
 
   const { currentUser, users, addUser, updateUser, deleteUser, changePassword } = useAuth();
   const { auditLog, clearAuditLog } = useAudit();
 
-  const [activeTab, setActiveTab] = useState<'business' | 'customize' | 'cameras' | 'users' | 'audit' | 'integrations'>('business');
+  const [activeTab, setActiveTab] = useState<'business' | 'customize' | 'cameras' | 'users' | 'audit' | 'integrations' | 'license'>('business');
+  const [licenseInput, setLicenseInput] = useState('');
+  const [licenseActivating, setLicenseActivating] = useState(false);
+  const [licenseError, setLicenseError] = useState<string | null>(null);
+  const [licenseSuccess, setLicenseSuccess] = useState(false);
   const [apiKeyForm, setApiKeyForm] = useState({ ...apiKeys });
   const [showApiKeys, setShowApiKeys] = useState<Record<string, boolean>>({});
   const [apiKeySaved, setApiKeySaved] = useState(false);
@@ -154,7 +159,10 @@ export default function Settings() {
           <ClipboardList size={16} style={{ marginRight: '8px' }} /> Audit Log
         </div>
         <div className={`tab ${activeTab === 'integrations' ? 'active' : ''}`} onClick={() => { setActiveTab('integrations'); setApiKeyForm({ ...apiKeys }); }}>
-          <Key size={16} style={{ marginRight: '8px' }} /> Integrations
+          <Key size={16} style={{ marginRight: '8px' }} /> API Keys
+        </div>
+        <div className={`tab ${activeTab === 'license' ? 'active' : ''}`} onClick={() => setActiveTab('license')}>
+          <CheckCircle size={16} style={{ marginRight: '8px' }} /> License
         </div>
       </div>
 
@@ -526,6 +534,106 @@ export default function Settings() {
               <Key size={16} /> Save API Keys
             </button>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'license' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div>
+            <h3 style={{ fontWeight: 600, marginBottom: '4px' }}>License</h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+              Activate your GSOC AI license. Your key was emailed after purchase.
+            </p>
+          </div>
+
+          {/* Current status */}
+          {licenseInfo?.valid ? (
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '10px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#22c55e', fontWeight: 600 }}>
+                <CheckCircle size={18} /> License Active
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '13px' }}>
+                <div>
+                  <div style={{ color: 'var(--text-secondary)', marginBottom: '2px' }}>Plan</div>
+                  <div style={{ fontWeight: 600, textTransform: 'capitalize' }}>{licenseInfo.plan}</div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--text-secondary)', marginBottom: '2px' }}>Organization</div>
+                  <div style={{ fontWeight: 600 }}>{licenseInfo.org || '—'}</div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--text-secondary)', marginBottom: '2px' }}>License Key</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: '12px' }}>{licenseKey}</div>
+                </div>
+                {licenseInfo.trialEndsAt && (
+                  <div>
+                    <div style={{ color: 'var(--text-secondary)', marginBottom: '2px' }}>Trial Ends</div>
+                    <div style={{ fontWeight: 600 }}>
+                      {new Date(licenseInfo.trialEndsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : licenseKey ? (
+            <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '16px', fontSize: '13px', color: '#f87171' }}>
+              License invalid or expired: {licenseInfo?.reason ?? 'Unknown error'}
+            </div>
+          ) : null}
+
+          {/* Activate form */}
+          {!licenseInfo?.valid && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 500 }}>Enter License Key</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  className="input"
+                  placeholder="GSOC-XXXX-XXXX-XXXX-XXXX"
+                  value={licenseInput}
+                  onChange={e => { setLicenseInput(e.target.value.toUpperCase()); setLicenseError(null); }}
+                  style={{ flex: 1, fontFamily: 'monospace', letterSpacing: '0.05em' }}
+                />
+                <button
+                  className="btn btn-primary"
+                  disabled={licenseActivating || licenseInput.length < 10}
+                  onClick={async () => {
+                    setLicenseActivating(true);
+                    setLicenseError(null);
+                    setLicenseSuccess(false);
+                    try {
+                      const result = await activateLicense(licenseInput);
+                      if (result.valid) {
+                        setLicenseSuccess(true);
+                        setLicenseInput('');
+                      } else {
+                        setLicenseError(result.reason ?? 'Invalid license key');
+                      }
+                    } catch {
+                      setLicenseError('Could not reach license server. Check your internet connection.');
+                    } finally {
+                      setLicenseActivating(false);
+                    }
+                  }}
+                >
+                  {licenseActivating ? 'Activating...' : 'Activate'}
+                </button>
+              </div>
+              {licenseError && (
+                <div style={{ fontSize: '13px', color: '#f87171' }}>{licenseError}</div>
+              )}
+              {licenseSuccess && (
+                <div style={{ fontSize: '13px', color: '#22c55e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle size={14} /> License activated successfully!
+                </div>
+              )}
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
+                Don&apos;t have a license?{' '}
+                <a href="https://gsocai.vercel.app/#pricing" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>
+                  Purchase one
+                </a>
+              </p>
+            </div>
+          )}
         </div>
       )}
 
