@@ -1,4 +1,4 @@
-name: Build GSOC AI Desktop App
+name: Build & Release GSOC AI
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
       - 'v*'
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,14 +15,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest'
-            target: 'aarch64-apple-darwin'
-          - platform: 'macos-latest'
-            target: 'x86_64-apple-darwin'
-          - platform: 'ubuntu-22.04'
-            target: 'x86_64-unknown-linux-gnu'
-          - platform: 'windows-latest'
-            target: ''
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+          - platform: macos-latest
+            args: '--target x86_64-apple-darwin'
+          - platform: ubuntu-22.04
+            args: ''
+          - platform: windows-latest
+            args: ''
 
     runs-on: ${{ matrix.platform }}
 
@@ -33,78 +34,56 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
+          cache-dependency-path: gsoc-ai/package-lock.json
 
-      - name: Cache npm dependencies
-        uses: actions/cache@v3
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
         with:
-          path: gsoc-ai/node_modules
-          key: ${{ runner.os }}-npm-${{ hashFiles('gsoc-ai/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: gsoc-ai/src-tauri -> target
+
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            librsvg2-dev \
+            patchelf \
+            libappindicator3-dev
 
       - name: Install frontend dependencies
         working-directory: gsoc-ai
         run: npm ci
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          targets: ${{ matrix.target }}
+          projectPath: gsoc-ai
+          args: ${{ matrix.args }}
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: 'GSOC AI ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}'
+          releaseDraft: true
+          prerelease: false
+          includeDebug: false
+          includeRelease: true
 
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libwebkitgtk-6.0-dev libgdk-pixbuf-2.0-dev libpango1.0-dev libatk1.0-dev libcairo2-dev libglib2.0-dev libwebkit2gtk-4.1-dev
-
-      - name: Install macOS dependencies
-        if: matrix.platform == 'macos-latest'
-        run: brew install create-dmg
-
-      - name: Build Tauri app (with target)
-        if: matrix.target != ''
-        working-directory: gsoc-ai
-        shell: bash
-        run: npm run tauri build --target "${{ matrix.target }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Tauri app (no target)
-        if: matrix.target == ''
-        working-directory: gsoc-ai
-        shell: bash
-        run: npm run tauri build
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload artifacts
+      - name: Upload build artifacts
+        if: "!startsWith(github.ref, 'refs/tags/')"
         uses: actions/upload-artifact@v4
         with:
-          name: gsoc-ai-${{ matrix.platform }}-${{ matrix.target || 'windows' }}
+          name: gsoc-ai-${{ matrix.platform }}-${{ strategy.job-index }}
           path: |
-            gsoc-ai/src-tauri/target/release/bundle/**/*.dmg
-            gsoc-ai/src-tauri/target/release/bundle/**/*.exe
-            gsoc-ai/src-tauri/target/release/bundle/**/*.msi
-            gsoc-ai/src-tauri/target/release/bundle/**/*.AppImage
-            gsoc-ai/src-tauri/target/release/bundle/**/*.deb
+            gsoc-ai/src-tauri/target/**/bundle/**/*.dmg
+            gsoc-ai/src-tauri/target/**/bundle/**/*.exe
+            gsoc-ai/src-tauri/target/**/bundle/**/*.msi
+            gsoc-ai/src-tauri/target/**/bundle/**/*.AppImage
+            gsoc-ai/src-tauri/target/**/bundle/**/*.deb
           if-no-files-found: ignore
-
-  release:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifacts/**/*
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
