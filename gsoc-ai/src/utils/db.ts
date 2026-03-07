@@ -130,6 +130,16 @@ async function initSchema(db: Database): Promise<void> {
     value TEXT NOT NULL
   )`);
 
+  await db.execute(`CREATE TABLE IF NOT EXISTS integrations (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    name TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    config TEXT NOT NULL DEFAULT '{}',
+    last_sync TEXT,
+    status TEXT NOT NULL DEFAULT 'disconnected'
+  )`);
+
   await seedDefaults(db);
 }
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useAudit } from '../store/AuditContext';
-import { Building, Camera, X, Plus, Trash2, Settings as SettingsIcon, AlertCircle, Users, ClipboardList, Eye, EyeOff, Download } from 'lucide-react';
+import { Building, Camera, X, Plus, Trash2, Settings as SettingsIcon, AlertCircle, Users, ClipboardList, Eye, EyeOff, Download, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import type { BusinessLocation, CameraSource } from '../types';
 import type { User } from '../store/AuthContext';
@@ -259,6 +259,11 @@ export default function Settings() {
                         </td>
                         <td>
                           <div className="actions-cell">
+                            {cam.url && (
+                              <button className="btn btn-secondary btn-sm" onClick={() => window.open(cam.url, '_blank')} title="Open stream URL">
+                                <ExternalLink size={14} />
+                              </button>
+                            )}
                             <button className="btn btn-secondary btn-sm" onClick={() => handleOpenCameraModal(cam)}>Edit</button>
                             <button className="btn btn-danger btn-sm" onClick={() => deleteCameraSource(cam.id)}><Trash2 size={14} /></button>
                           </div>

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
-import { Phone, PhoneCall, PhoneOff, Mic, MicOff, Volume2, VolumeX, Settings, LogOut, Download, History, Gauge, Zap, User, Plus, Trash2, Clock, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Phone, PhoneCall, PhoneOff, Mic, MicOff, Volume2, Settings, LogOut, Download, History, Gauge, Zap, User, Plus, Trash2, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 
 const STATUSES = [
   { value: 'Available', label: 'Available', color: 'success' },
@@ -27,7 +27,16 @@ export default function VoIP() {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showAddQuickConnect, setShowAddQuickConnect] = useState(false);
   const [newQuickConnect, setNewQuickConnect] = useState({ name: '', number: '' });
-  
+  const [activeCall, setActiveCall] = useState<{ number: string; startTime: Date; muted: boolean; held: boolean } | null>(null);
+  const [callDuration, setCallDuration] = useState(0);
+  const [callHistory, setCallHistory] = useState([
+    { id: '1', type: 'outbound', number: '555-0123', duration: '5:23', time: '10:30 AM' },
+    { id: '2', type: 'inbound', number: '555-0456', duration: '3:12', time: '10:15 AM' },
+    { id: '3', type: 'outbound', number: '555-0789', duration: '8:45', time: '09:45 AM' },
+    { id: '4', type: 'inbound', number: '555-0321', duration: '2:30', time: '09:20 AM' },
+  ]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const [audioSettings, setAudioSettings] = useState({
     speaker: 'Default',
     microphone: 'Default',
@@ -35,14 +44,42 @@ export default function VoIP() {
     audioEnhancement: true,
   });
 
+  useEffect(() => {
+    if (activeCall) {
+      timerRef.current = setInterval(() => setCallDuration(s => s + 1), 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+      setCallDuration(0);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [activeCall]);
+
   const handleDial = (num: string) => {
     setDialNumber(prev => prev + num);
   };
 
+  const formatDuration = (secs: number) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
   const handleCall = () => {
-    if (dialNumber) {
-      alert(`Calling ${dialNumber}...`);
+    if (dialNumber && !activeCall) {
+      setActiveCall({ number: dialNumber, startTime: new Date(), muted: false, held: false });
     }
+  };
+
+  const handleHangup = () => {
+    if (!activeCall) return;
+    const duration = formatDuration(callDuration);
+    const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    setCallHistory(prev => [
+      { id: Date.now().toString(), type: 'outbound', number: activeCall.number, duration, time },
+      ...prev,
+    ]);
+    setActiveCall(null);
+    setDialNumber('');
   };
 
   const handleClear = () => {
@@ -70,19 +107,12 @@ export default function VoIP() {
   };
 
   const mockMetrics = {
-    callsToday: 24,
+    callsToday: callHistory.filter(c => c.type === 'outbound').length,
     avgHandleTime: '4:32',
     avgHoldTime: '0:45',
-    callsOnHold: 2,
-    availableAgents: 8,
+    callsOnHold: 0,
+    availableAgents: 1,
   };
-
-  const mockHistory = [
-    { id: '1', type: 'outbound', number: '555-0123', duration: '5:23', time: '10:30 AM' },
-    { id: '2', type: 'inbound', number: '555-0456', duration: '3:12', time: '10:15 AM' },
-    { id: '3', type: 'outbound', number: '555-0789', duration: '8:45', time: '09:45 AM' },
-    { id: '4', type: 'inbound', number: '555-0321', duration: '2:30', time: '09:20 AM' },
-  ];
 
   return (
     <div className="voip-container">
@@ -104,6 +134,43 @@ export default function VoIP() {
             <Settings size={16} style={{ marginRight: '8px' }} /> Settings
           </div>
         </div>
+
+        {activeCall && (
+          <div style={{
+            backgroundColor: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: '8px',
+            padding: '16px 20px', marginBottom: '12px', display: 'flex',
+            alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: 'var(--success)', animation: 'pulse 1.5s infinite' }} />
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '15px' }}>Active Call — {activeCall.number}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  {activeCall.held ? 'On Hold' : activeCall.muted ? 'Muted' : 'Connected'} · {formatDuration(callDuration)}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setActiveCall(c => c ? { ...c, muted: !c.muted } : null)}
+                style={{ minWidth: '72px' }}
+              >
+                <Mic size={14} /> {activeCall.muted ? 'Unmute' : 'Mute'}
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setActiveCall(c => c ? { ...c, held: !c.held } : null)}
+                style={{ minWidth: '72px' }}
+              >
+                {activeCall.held ? 'Resume' : 'Hold'}
+              </button>
+              <button className="btn btn-danger btn-sm" onClick={handleHangup}>
+                <PhoneOff size={14} /> Hang Up
+              </button>
+            </div>
+          </div>
+        )}
 
         {activeTab === 'current' && (
           <div className="card">
@@ -167,18 +234,20 @@ export default function VoIP() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '24px' }}>
-              <button 
-                className="btn btn-primary" 
+              <button
+                className="btn btn-primary"
                 style={{ borderRadius: '50%', width: '64px', height: '64px' }}
                 onClick={handleCall}
-                disabled={!dialNumber}
+                disabled={!dialNumber || !!activeCall}
+                title={activeCall ? 'Already in a call' : 'Call'}
               >
                 <PhoneCall size={24} />
               </button>
-              <button 
-                className="btn btn-danger" 
+              <button
+                className="btn btn-danger"
                 style={{ borderRadius: '50%', width: '64px', height: '64px' }}
-                onClick={handleClear}
+                onClick={activeCall ? handleHangup : handleClear}
+                title={activeCall ? 'Hang up' : 'Clear'}
               >
                 <PhoneOff size={24} />
               </button>
@@ -265,7 +334,7 @@ export default function VoIP() {
                   </tr>
                 </thead>
                 <tbody>
-                  {mockHistory.map(call => (
+                  {callHistory.map(call => (
                     <tr key={call.id}>
                       <td>
                         {call.type === 'outbound' ? (

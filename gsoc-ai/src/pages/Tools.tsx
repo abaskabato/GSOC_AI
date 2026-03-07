@@ -24,6 +24,9 @@ export default function Tools() {
   const [fromTime, setFromTime] = useState('12:00');
   const [convertedTime, setConvertedTime] = useState('');
   const [mapSearch, setMapSearch] = useState('');
+  const [mapEmbedSrc, setMapEmbedSrc] = useState(
+    'https://maps.google.com/maps?q=Seattle,WA&output=embed'
+  );
 
   const convertTime = () => {
     try {
@@ -69,7 +72,7 @@ export default function Tools() {
 
   const handleMapSearch = () => {
     if (mapSearch) {
-      window.open(`https://www.google.com/maps/search/${encodeURIComponent(mapSearch)}`, '_blank');
+      setMapEmbedSrc(`https://maps.google.com/maps?q=${encodeURIComponent(mapSearch)}&output=embed`);
     }
   };
 
@@ -179,7 +182,7 @@ export default function Tools() {
 
         <div className="map-container">
           <iframe
-            src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d26868.54321098765!2d-122.3321!3d47.6062!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2sus!4v1234567890"
+            src={mapEmbedSrc}
             allowFullScreen
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
@@ -188,7 +191,7 @@ export default function Tools() {
         </div>
 
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '12px' }}>
-          Click "Search" to open the location in a new Google Maps tab.
+          Enter an address or location name and click "Search" to navigate the map.
         </p>
       </div>
     </div>

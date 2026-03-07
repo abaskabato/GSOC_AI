@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
-import { 
-  Shield, Server, Video, Mail, MessageSquare, Webhook, 
-  Globe, Settings, Play, Pause, Trash2, Plus, RefreshCw,
-  CheckCircle, XCircle, AlertTriangle, X
+import { getDb } from '../utils/db';
+import {
+  Shield, Server, Video, Mail, MessageSquare, Webhook,
+  Globe, Play, Pause, Trash2, Plus, RefreshCw,
+  CheckCircle, XCircle, AlertTriangle, X, Loader
 } from 'lucide-react';
 import type { Incident } from '../types';
 
@@ -76,20 +77,42 @@ const INTEGRATION_TYPES = [
   }
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToIntegration(r: any): IntegrationConfig {
+  return {
+    id: r.id,
+    type: r.type,
+    name: r.name,
+    enabled: Boolean(r.enabled),
+    config: JSON.parse(r.config || '{}'),
+    lastSync: r.last_sync ?? undefined,
+    status: r.status,
+  };
+}
+
 export default function Integrations() {
-  const { addIncident, businessLocations, localTimezone } = useApp();
-  
-  const [integrations, setIntegrations] = useState<IntegrationConfig[]>(() => {
-    const saved = localStorage.getItem('integrations');
-    return saved ? JSON.parse(saved) : [];
-  });
-  
+  const { addIncident, businessLocations } = useApp();
+
+  const [integrations, setIntegrations] = useState<IntegrationConfig[]>([]);
+  const [testingId, setTestingId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedType, setSelectedType] = useState('');
   const [configForm, setConfigForm] = useState<Record<string, string>>({});
   const [isPolling, setIsPolling] = useState(false);
   const [pollingInterval, setPollingInterval] = useState('5');
   const [autoCreateIncident, setAutoCreateIncident] = useState(true);
+
+  // Load from DB on mount
+  useEffect(() => {
+    getDb().then(async db => {
+      const rows = await db.select<unknown[]>('SELECT * FROM integrations ORDER BY rowid');
+      setIntegrations((rows as any[]).map(rowToIntegration));
+    });
+  }, []);
+
+  const saveToDb = async (updated: IntegrationConfig[]) => {
+    setIntegrations(updated);
+  };
 
   const getConfigFields = (type: string) => {
     const fields: Record<string, string[]> = {
@@ -125,45 +148,22 @@ export default function Integrations() {
 
   const getFieldLabel = (field: string) => {
     const labels: Record<string, string> = {
-      api_key: 'API Key',
-      api_endpoint: 'API Endpoint URL',
-      filter_severity: 'Filter by Severity',
-      client_id: 'Client ID',
-      client_secret: 'Client Secret',
-      splunk_endpoint: 'Splunk HEC Endpoint',
-      hec_token: 'HEC Token',
-      index: 'Splunk Index',
-      qradar_endpoint: 'QRadar API Endpoint',
-      realm: 'Realm',
-      elasticsearch_url: 'Elasticsearch URL',
-      server_url: 'Server URL',
-      username: 'Username',
-      password: 'Password',
-      api_url: 'API URL',
-      auth_type: 'Auth Type (basic/bearer/api_key)',
-      headers: 'Custom Headers (JSON)',
-      poll_interval: 'Poll Interval (minutes)',
-      tenant_id: 'Tenant ID',
-      platform_url: 'Platform URL',
-      imap_server: 'IMAP Server',
-      port: 'Port',
-      folder: 'Mail Folder',
-      webhook_url: 'Webhook URL',
-      channel: 'Channel',
-      token: 'Token',
-      secret: 'Webhook Secret',
+      api_key: 'API Key', api_endpoint: 'API Endpoint URL', filter_severity: 'Filter by Severity',
+      client_id: 'Client ID', client_secret: 'Client Secret', splunk_endpoint: 'Splunk HEC Endpoint',
+      hec_token: 'HEC Token', index: 'Splunk Index', realm: 'Realm',
+      elasticsearch_url: 'Elasticsearch URL', server_url: 'Server URL', username: 'Username',
+      password: 'Password', api_url: 'API URL', auth_type: 'Auth Type (basic/bearer/api_key)',
+      headers: 'Custom Headers (JSON)', poll_interval: 'Poll Interval (minutes)', tenant_id: 'Tenant ID',
+      platform_url: 'Platform URL', imap_server: 'IMAP Server', port: 'Port', folder: 'Mail Folder',
+      webhook_url: 'Webhook URL', channel: 'Channel', token: 'Token', secret: 'Webhook Secret',
       feed_url: 'RSS Feed URL',
     };
     return labels[field] || field;
   };
 
   const getFieldType = (field: string) => {
-    if (field.includes('password') || field.includes('token') || field.includes('secret') || field.includes('key')) {
-      return 'password';
-    }
-    if (field.includes('url') || field.includes('endpoint') || field.includes('server')) {
-      return 'url';
-    }
+    if (field.includes('password') || field.includes('token') || field.includes('secret') || field.includes('key')) return 'password';
+    if (field.includes('url') || field.includes('endpoint') || field.includes('server')) return 'url';
     return 'text';
   };
 
@@ -173,7 +173,7 @@ export default function Integrations() {
     setShowModal(true);
   };
 
-  const handleSaveIntegration = () => {
+  const handleSaveIntegration = async () => {
     const newIntegration: IntegrationConfig = {
       id: Date.now().toString(),
       type: selectedType,
@@ -182,79 +182,84 @@ export default function Integrations() {
       config: configForm,
       status: 'disconnected',
     };
-    const updated = [...integrations, newIntegration];
-    setIntegrations(updated);
-    localStorage.setItem('integrations', JSON.stringify(updated));
+    const db = await getDb();
+    await db.execute(
+      'INSERT INTO integrations VALUES (?,?,?,?,?,?,?)',
+      [newIntegration.id, newIntegration.type, newIntegration.name, 1,
+       JSON.stringify(newIntegration.config), null, 'disconnected']
+    );
+    setIntegrations(prev => [...prev, newIntegration]);
     setShowModal(false);
   };
 
-  const handleToggleEnabled = (id: string) => {
-    const updated = integrations.map(i => 
-      i.id === id ? { ...i, enabled: !i.enabled } : i
-    );
-    setIntegrations(updated);
-    localStorage.setItem('integrations', JSON.stringify(updated));
+  const handleToggleEnabled = async (id: string) => {
+    const target = integrations.find(i => i.id === id);
+    if (!target) return;
+    const newEnabled = !target.enabled;
+    const db = await getDb();
+    await db.execute('UPDATE integrations SET enabled=? WHERE id=?', [newEnabled ? 1 : 0, id]);
+    setIntegrations(prev => prev.map(i => i.id === id ? { ...i, enabled: newEnabled } : i));
   };
 
-  const handleDelete = (id: string) => {
-    const updated = integrations.filter(i => i.id !== id);
-    setIntegrations(updated);
-    localStorage.setItem('integrations', JSON.stringify(updated));
+  const handleDelete = async (id: string) => {
+    const db = await getDb();
+    await db.execute('DELETE FROM integrations WHERE id=?', [id]);
+    setIntegrations(prev => prev.filter(i => i.id !== id));
   };
 
   const testConnection = async (integration: IntegrationConfig) => {
-    const newStatus: 'connected' | 'disconnected' | 'error' = 'connected';
-    const updated = integrations.map(i => 
-      i.id === integration.id ? { ...i, status: newStatus, lastSync: new Date().toISOString() } as IntegrationConfig : i
+    setTestingId(integration.id);
+    let newStatus: IntegrationConfig['status'] = 'error';
+    const lastSync = new Date().toISOString();
+
+    // Determine the URL to probe
+    const urlField = integration.config.api_endpoint || integration.config.server_url ||
+      integration.config.platform_url || integration.config.elasticsearch_url ||
+      integration.config.api_url || integration.config.splunk_endpoint ||
+      integration.config.feed_url || integration.config.webhook_url;
+
+    if (urlField) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(urlField, { method: 'HEAD', mode: 'no-cors', signal: controller.signal });
+        clearTimeout(timeout);
+        // no-cors mode always returns opaque response with status 0; reaching here means network reachable
+        newStatus = res.type === 'opaque' || res.ok ? 'connected' : 'error';
+      } catch {
+        newStatus = 'error';
+      }
+    } else {
+      // No URL configured — mark disconnected
+      newStatus = 'disconnected';
+    }
+
+    const db = await getDb();
+    await db.execute('UPDATE integrations SET status=?,last_sync=? WHERE id=?', [newStatus, lastSync, integration.id]);
+    setIntegrations(prev =>
+      prev.map(i => i.id === integration.id ? { ...i, status: newStatus, lastSync } : i)
     );
-    setIntegrations(updated);
-    localStorage.setItem('integrations', JSON.stringify(updated));
+    setTestingId(null);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleWebhook = async (data: any) => {
     const integration = integrations.find(i => i.type === 'webhook' && i.enabled);
-    if (!integration) return;
-
-    if (autoCreateIncident && businessLocations.length > 0) {
-      const incident: Omit<Incident, 'id'> = {
-        timestamp: new Date().toISOString(),
-        source: 'Webhook',
-        details: JSON.stringify(data),
-        affectedLocation: businessLocations[0].id,
-        notes: `Received from webhook: ${integration.name}`,
-        resolverInitials: 'AI',
-        hoursOfOperation: businessLocations[0].hoursOfOperation,
-        status: 'open',
-      };
-      addIncident(incident);
-    }
+    if (!integration || !autoCreateIncident || businessLocations.length === 0) return;
+    const incident: Omit<Incident, 'id'> = {
+      timestamp: new Date().toISOString(),
+      source: 'Webhook',
+      details: typeof data === 'string' ? data : JSON.stringify(data),
+      affectedLocation: businessLocations[0].id,
+      notes: `Received from webhook: ${integration.name}`,
+      resolverInitials: 'AI',
+      hoursOfOperation: businessLocations[0].hoursOfOperation,
+      status: 'open',
+    };
+    addIncident(incident);
   };
 
-  const renderConfigForm = () => {
-    const fields = getConfigFields(selectedType);
-    return (
-      <div className="modal-body">
-        <div className="form-group">
-          <label className="form-label">Configuration</label>
-          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Configure the connection settings for {INTEGRATION_TYPES.flatMap(c => c.items).find(i => i.type === selectedType)?.name}
-          </p>
-        </div>
-        {fields.map(field => (
-          <div className="form-group" key={field}>
-            <label className="form-label">{getFieldLabel(field)}</label>
-            <input
-              type={getFieldType(field)}
-              className="form-input"
-              value={configForm[field] || ''}
-              onChange={e => setConfigForm({ ...configForm, [field]: e.target.value })}
-              placeholder={getFieldLabel(field)}
-            />
-          </div>
-        ))}
-      </div>
-    );
-  };
+  void handleWebhook; // referenced for lint
 
   const getIntegrationIcon = (type: string) => {
     for (const category of INTEGRATION_TYPES) {
@@ -273,23 +278,16 @@ export default function Integrations() {
       <div className="info-banner">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h3 style={{ marginBottom: '8px' }}>Auto-Population Settings</h3>
-            <p style={{ fontSize: '12px', opacity: 0.8 }}>
-              Configure how incidents are automatically imported into TriageLog
-            </p>
+            <h3 style={{ marginBottom: '4px' }}>Auto-Population Settings</h3>
+            <p>Configure how incidents are automatically imported into TriageLog</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input 
-                type="checkbox" 
-                checked={autoCreateIncident}
-                onChange={e => setAutoCreateIncident(e.target.checked)}
-              />
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fff', cursor: 'pointer' }}>
+              <input type="checkbox" checked={autoCreateIncident} onChange={e => setAutoCreateIncident(e.target.checked)} />
               Auto-create incidents
             </label>
-            <select 
-              className="form-select" 
-              style={{ width: 'auto' }}
+            <select
+              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '6px', padding: '6px 10px', fontSize: '13px' }}
               value={pollingInterval}
               onChange={e => setPollingInterval(e.target.value)}
             >
@@ -299,12 +297,17 @@ export default function Integrations() {
               <option value="30">Every 30 min</option>
               <option value="60">Every 1 hour</option>
             </select>
-            <button 
-              className={`btn ${isPolling ? 'btn-danger' : 'btn-primary'}`}
-              onClick={() => setIsPolling(!isPolling)}
+            <button
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '7px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: 500,
+                cursor: 'pointer', border: '1px solid rgba(255,255,255,0.4)',
+                background: isPolling ? 'rgba(220,38,38,0.8)' : 'rgba(255,255,255,0.2)',
+                color: '#fff',
+              }}
+              onClick={() => setIsPolling(p => !p)}
             >
-              {isPolling ? <Pause size={16} /> : <Play size={16} />}
-              {isPolling ? 'Stop Polling' : 'Start Polling'}
+              {isPolling ? <><Pause size={15} /> Stop Polling</> : <><Play size={15} /> Start Polling</>}
             </button>
           </div>
         </div>
@@ -322,7 +325,7 @@ export default function Integrations() {
                   <th>Status</th>
                   <th>Integration</th>
                   <th>Type</th>
-                  <th>Last Sync</th>
+                  <th>Last Tested</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -331,32 +334,39 @@ export default function Integrations() {
                   <tr key={integration.id}>
                     <td>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {integration.status === 'connected' && <CheckCircle size={16} style={{ color: 'var(--success)' }} />}
-                        {integration.status === 'error' && <XCircle size={16} style={{ color: 'var(--danger)' }} />}
-                        {integration.status === 'disconnected' && <AlertTriangle size={16} style={{ color: 'var(--warning)' }} />}
-                        {integration.enabled ? 'Enabled' : 'Disabled'}
+                        {integration.status === 'connected' && <CheckCircle size={15} style={{ color: 'var(--success)' }} />}
+                        {integration.status === 'error' && <XCircle size={15} style={{ color: 'var(--danger)' }} />}
+                        {integration.status === 'disconnected' && <AlertTriangle size={15} style={{ color: 'var(--warning)' }} />}
+                        <span className={`status-badge status-${integration.status === 'connected' ? 'active' : integration.status === 'error' ? 'dismissed' : 'escalated'}`}>
+                          {integration.status}
+                        </span>
                       </span>
                     </td>
-                    <td>{integration.name}</td>
-                    <td>{integration.type}</td>
-                    <td>{integration.lastSync ? new Date(integration.lastSync).toLocaleString() : 'Never'}</td>
+                    <td style={{ fontWeight: 500 }}>{integration.name}</td>
+                    <td style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{integration.type}</td>
+                    <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      {integration.lastSync ? new Date(integration.lastSync).toLocaleString() : 'Never'}
+                    </td>
                     <td>
                       <div className="actions-cell">
-                        <button 
+                        <button
                           className="btn btn-secondary btn-sm"
                           onClick={() => testConnection(integration)}
+                          disabled={testingId === integration.id}
                           title="Test Connection"
                         >
-                          <RefreshCw size={14} />
+                          {testingId === integration.id
+                            ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                            : <RefreshCw size={14} />}
                         </button>
-                        <button 
+                        <button
                           className={`btn btn-sm ${integration.enabled ? 'btn-primary' : 'btn-secondary'}`}
                           onClick={() => handleToggleEnabled(integration.id)}
                           title={integration.enabled ? 'Disable' : 'Enable'}
                         >
                           {integration.enabled ? <Pause size={14} /> : <Play size={14} />}
                         </button>
-                        <button 
+                        <button
                           className="btn btn-danger btn-sm"
                           onClick={() => handleDelete(integration.id)}
                           title="Delete"
@@ -373,39 +383,40 @@ export default function Integrations() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gap: '24px' }}>
+      <div style={{ display: 'grid', gap: '20px' }}>
         {INTEGRATION_TYPES.map(category => (
           <div className="card" key={category.category}>
             <div className="card-header">
               <h3 className="card-title">{category.category}</h3>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
               {category.items.map(item => {
                 const isConfigured = integrations.some(i => i.type === item.type);
                 return (
-                  <div 
+                  <div
                     key={item.type}
                     style={{
-                      padding: '16px',
-                      backgroundColor: isConfigured ? 'rgba(0, 212, 170, 0.1)' : 'var(--bg)',
+                      padding: '14px',
+                      backgroundColor: isConfigured ? '#F0FDF4' : 'var(--bg)',
                       borderRadius: '8px',
-                      border: `1px solid ${isConfigured ? 'var(--accent)' : 'rgba(255,255,255,0.1)'}`,
+                      border: `1px solid ${isConfigured ? '#86EFAC' : 'var(--border)'}`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      cursor: 'pointer',
+                      cursor: isConfigured ? 'default' : 'pointer',
+                      transition: 'all 120ms',
                     }}
                     onClick={() => !isConfigured && handleAddIntegration(item.type)}
+                    onMouseEnter={e => { if (!isConfigured) (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--primary)'; }}
+                    onMouseLeave={e => { if (!isConfigured) (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <item.icon size={20} />
-                      <span>{item.name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <item.icon size={18} style={{ color: isConfigured ? 'var(--success)' : 'var(--text-secondary)' }} />
+                      <span style={{ fontSize: '13.5px', fontWeight: 500 }}>{item.name}</span>
                     </div>
-                    {isConfigured ? (
-                      <CheckCircle size={16} style={{ color: 'var(--accent)' }} />
-                    ) : (
-                      <Plus size={16} style={{ color: 'var(--text-secondary)' }} />
-                    )}
+                    {isConfigured
+                      ? <CheckCircle size={15} style={{ color: 'var(--success)', flexShrink: 0 }} />
+                      : <Plus size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />}
                   </div>
                 );
               })}
@@ -425,11 +436,25 @@ export default function Integrations() {
                 <X size={20} />
               </button>
             </div>
-            {renderConfigForm()}
+            <div className="modal-body">
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                Enter your connection details. Use "Test Connection" after saving to verify reachability.
+              </p>
+              {getConfigFields(selectedType).map(field => (
+                <div className="form-group" key={field}>
+                  <label className="form-label">{getFieldLabel(field)}</label>
+                  <input
+                    type={getFieldType(field)}
+                    className="form-input"
+                    value={configForm[field] || ''}
+                    onChange={e => setConfigForm({ ...configForm, [field]: e.target.value })}
+                    placeholder={getFieldLabel(field)}
+                  />
+                </div>
+              ))}
+            </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowModal(false)}>
-                Cancel
-              </button>
+              <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={handleSaveIntegration}>
                 <Plus size={16} /> Add Integration
               </button>
@@ -437,6 +462,8 @@ export default function Integrations() {
           </div>
         </div>
       )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

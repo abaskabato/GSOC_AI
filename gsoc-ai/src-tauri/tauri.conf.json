@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.google.com https://*.googleusercontent.com; frame-src https://www.google.com https://www.google.com/maps data:; connect-src 'self' https://*.google.com blob:"
+      "csp": "default-src 'self' blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.google.com https://*.googleusercontent.com; frame-src https://www.google.com https://maps.google.com data:; connect-src 'self' https: http: blob:"
     }
   },
   "bundle": {

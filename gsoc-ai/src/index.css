@@ -468,6 +468,11 @@ body {
 .status-dot.offline    { background-color: var(--text-secondary); }
 
 /* ── Modals ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
