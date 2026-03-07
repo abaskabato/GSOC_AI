@@ -16,13 +16,17 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            args: '--target aarch64-apple-darwin'
+            args: --target aarch64-apple-darwin
+            label: macos-arm64
           - platform: macos-latest
-            args: '--target x86_64-apple-darwin'
+            args: --target x86_64-apple-darwin
+            label: macos-x64
           - platform: ubuntu-22.04
             args: ''
+            label: linux-x64
           - platform: windows-latest
             args: ''
+            label: windows-x64
 
     runs-on: ${{ matrix.platform }}
 
@@ -40,7 +44,7 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
@@ -68,8 +72,8 @@ jobs:
         with:
           projectPath: gsoc-ai
           args: ${{ matrix.args }}
-          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-          releaseName: 'GSOC AI ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}'
+          tagName: ${{ github.ref_name }}
+          releaseName: GSOC AI ${{ github.ref_name }}
           releaseDraft: true
           prerelease: false
           includeDebug: false
@@ -79,7 +83,7 @@ jobs:
         if: "!startsWith(github.ref, 'refs/tags/')"
         uses: actions/upload-artifact@v4
         with:
-          name: gsoc-ai-${{ matrix.platform }}-${{ strategy.job-index }}
+          name: gsoc-ai-${{ matrix.label }}
           path: |
             gsoc-ai/src-tauri/target/**/bundle/**/*.dmg
             gsoc-ai/src-tauri/target/**/bundle/**/*.exe
