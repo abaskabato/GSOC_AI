@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { getDb } from '../utils/db';
 
 export interface User {
   id: string;
@@ -63,6 +64,20 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToUser(r: any): User {
+  return {
+    id: r.id,
+    username: r.username,
+    passwordHash: r.password_hash,
+    role: r.role,
+    initials: r.initials,
+    createdAt: r.created_at,
+    lastLogin: r.last_login ?? undefined,
+    forcePasswordChange: Boolean(r.force_password_change),
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -70,10 +85,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const init = async () => {
-      const saved = localStorage.getItem('gsoc_users');
-      if (saved) {
-        setUsers(JSON.parse(saved));
+      const db = await getDb();
+      const rows = await db.select<unknown[]>('SELECT * FROM users');
+      if (rows.length > 0) {
+        setUsers((rows as any[]).map(rowToUser));
       } else {
+        // Seed default admin user
         const defaultHash = await hashPassword('admin');
         const defaultUser: User = {
           id: uuidv4(),
@@ -84,29 +101,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           createdAt: new Date().toISOString(),
           forcePasswordChange: true,
         };
+        await db.execute(
+          'INSERT INTO users VALUES (?,?,?,?,?,?,?,?)',
+          [defaultUser.id, defaultUser.username, defaultUser.passwordHash,
+           defaultUser.role, defaultUser.initials, 1,
+           defaultUser.createdAt, null]
+        );
         setUsers([defaultUser]);
-        localStorage.setItem('gsoc_users', JSON.stringify([defaultUser]));
       }
       setIsInitialized(true);
     };
     init();
   }, []);
 
-  const saveUsers = (updated: User[]) => {
-    setUsers(updated);
-    localStorage.setItem('gsoc_users', JSON.stringify(updated));
-  };
-
   const login = async (username: string, password: string) => {
     const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
     if (!user) return { success: false, error: 'Invalid username or password' };
     const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) return { success: false, error: 'Invalid username or password' };
-    const updated = users.map(u =>
-      u.id === user.id ? { ...u, lastLogin: new Date().toISOString() } : u
-    );
-    saveUsers(updated);
-    setCurrentUser({ ...user, lastLogin: new Date().toISOString() });
+    const lastLogin = new Date().toISOString();
+    const db = await getDb();
+    await db.execute('UPDATE users SET last_login=? WHERE id=?', [lastLogin, user.id]);
+    const updated = users.map(u => u.id === user.id ? { ...u, lastLogin } : u);
+    setUsers(updated);
+    setCurrentUser({ ...user, lastLogin });
     return { success: true };
   };
 
@@ -115,22 +133,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const addUser = async (username: string, password: string, role: User['role'], initials: string) => {
     const passwordHash = await hashPassword(password);
     const newUser: User = {
-      id: uuidv4(),
-      username,
-      passwordHash,
-      role,
-      initials,
+      id: uuidv4(), username, passwordHash, role, initials,
       createdAt: new Date().toISOString(),
     };
-    saveUsers([...users, newUser]);
+    const db = await getDb();
+    await db.execute(
+      'INSERT INTO users VALUES (?,?,?,?,?,?,?,?)',
+      [newUser.id, newUser.username, newUser.passwordHash,
+       newUser.role, newUser.initials, 0, newUser.createdAt, null]
+    );
+    setUsers(prev => [...prev, newUser]);
   };
 
   const updateUser = (id: string, updates: Partial<Pick<User, 'role' | 'initials'>>) => {
-    saveUsers(users.map(u => u.id === id ? { ...u, ...updates } : u));
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
+    getDb().then(db => {
+      const fields: string[] = [];
+      const vals: unknown[] = [];
+      if (updates.role !== undefined) { fields.push('role=?'); vals.push(updates.role); }
+      if (updates.initials !== undefined) { fields.push('initials=?'); vals.push(updates.initials); }
+      if (fields.length) {
+        vals.push(id);
+        db.execute(`UPDATE users SET ${fields.join(',')} WHERE id=?`, vals);
+      }
+    });
   };
 
   const deleteUser = (id: string) => {
-    saveUsers(users.filter(u => u.id !== id));
+    setUsers(prev => prev.filter(u => u.id !== id));
+    getDb().then(db => db.execute('DELETE FROM users WHERE id=?', [id]));
   };
 
   const changePassword = async (userId: string, oldPassword: string, newPassword: string) => {
@@ -139,12 +170,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const valid = await verifyPassword(oldPassword, user.passwordHash);
     if (!valid) return { success: false, error: 'Current password is incorrect' };
     const newHash = await hashPassword(newPassword);
-    const updated = users.map(u =>
-      u.id === userId ? { ...u, passwordHash: newHash, forcePasswordChange: false } : u
-    );
-    saveUsers(updated);
+    const db = await getDb();
+    await db.execute('UPDATE users SET password_hash=?,force_password_change=0 WHERE id=?', [newHash, userId]);
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, passwordHash: newHash, forcePasswordChange: false } : u));
     if (currentUser?.id === userId) {
-      setCurrentUser(prev => prev ? { ...prev, forcePasswordChange: false } : null);
+      setCurrentUser(prev => prev ? { ...prev, passwordHash: newHash, forcePasswordChange: false } : null);
     }
     return { success: true };
   };
