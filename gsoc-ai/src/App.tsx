@@ -8,7 +8,7 @@ import Documents from './pages/Documents';
 import Tools from './pages/Tools';
 import Settings from './pages/Settings';
 import Integrations from './pages/Integrations';
-import { Shield, LayoutDashboard, Map, Phone, FileText, Wrench, Settings as SettingsIcon, Monitor, AlertTriangle, Plug } from 'lucide-react';
+import { Shield, Map, Phone, FileText, Wrench, Settings as SettingsIcon, Monitor, AlertTriangle, Plug } from 'lucide-react';
 
 function Sidebar() {
   const { businessName } = useApp();

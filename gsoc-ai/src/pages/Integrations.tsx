@@ -95,7 +95,7 @@ export default function Integrations() {
     const fields: Record<string, string[]> = {
       dataminr: ['api_key', 'api_endpoint', 'filter_severity'],
       recorded_future: ['api_key', 'api_endpoint'],
-      crowdsrike: ['api_key', 'api_endpoint'],
+      crowdstrike: ['api_key', 'api_endpoint'],
       mandiant: ['api_key', 'client_id', 'client_secret'],
       anomali: ['api_key', 'api_endpoint'],
       splunk: ['splunk_endpoint', 'hec_token', 'index'],

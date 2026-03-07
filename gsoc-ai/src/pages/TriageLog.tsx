@@ -135,9 +135,11 @@ export default function TriageLog() {
       .replace('{resolver}', selectedIncident.resolverInitials);
 
     const emailSubject = template.subject.replace('{location}', locationName);
-    
-    setGeneratedEmail(`mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`);
+
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+    setGeneratedEmail(mailtoUrl);
     setShowEmailModal(false);
+    window.open(mailtoUrl, '_blank');
   };
 
   const filteredIncidents = incidents.filter(incident => {

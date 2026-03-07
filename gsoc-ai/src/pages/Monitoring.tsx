@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { Plus, Search, Edit, Trash2, X, Monitor, Clock, MapPin, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Monitor, Clock, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import type { MonitoringRequest } from '../types';
 
