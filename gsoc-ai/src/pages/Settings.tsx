@@ -483,42 +483,11 @@ export default function Settings() {
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">Twilio Voice</h3>
-              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Enables real outbound/inbound calls in VoIP</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>VoIP calling</span>
             </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Account SID</label>
-                <input type="text" className="form-input" value={apiKeyForm.twilioAccountSid} onChange={e => setApiKeyForm({ ...apiKeyForm, twilioAccountSid: e.target.value })} placeholder="ACxxxxxxxxxxxxxxxx" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">API Key SID</label>
-                <input type="text" className="form-input" value={apiKeyForm.twilioApiKeySid} onChange={e => setApiKeyForm({ ...apiKeyForm, twilioApiKeySid: e.target.value })} placeholder="SKxxxxxxxxxxxxxxxx" />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">API Key Secret</label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={showApiKeys['twilioSecret'] ? 'text' : 'password'}
-                    className="form-input"
-                    value={apiKeyForm.twilioApiKeySecret}
-                    onChange={e => setApiKeyForm({ ...apiKeyForm, twilioApiKeySecret: e.target.value })}
-                    placeholder="Secret"
-                    style={{ paddingRight: '40px' }}
-                  />
-                  <button type="button" onClick={() => setShowApiKeys(s => ({ ...s, twilioSecret: !s.twilioSecret }))} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                    {showApiKeys['twilioSecret'] ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">TwiML App SID</label>
-                <input type="text" className="form-input" value={apiKeyForm.twilioAppSid} onChange={e => setApiKeyForm({ ...apiKeyForm, twilioAppSid: e.target.value })} placeholder="APxxxxxxxxxxxxxxxx" />
-              </div>
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-              Create at console.twilio.com → Voice → TwiML Apps. Requires a TwiML App with a Voice Request URL pointing to your webhook.
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px', backgroundColor: 'rgba(66,153,225,0.08)', border: '1px solid rgba(66,153,225,0.3)', borderRadius: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px', color: 'var(--info)' }} />
+              <span>VoIP is provided by the GSOC AI platform. No credentials needed here — the VoIP tab will connect automatically. To enable VoIP for your plan, contact support.</span>
             </div>
           </div>
 

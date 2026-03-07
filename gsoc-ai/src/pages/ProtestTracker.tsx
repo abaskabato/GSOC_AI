@@ -116,7 +116,7 @@ export default function ProtestTracker() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Protest Tracker</h1>
+        <h1 className="page-title">Civil Unrest Log</h1>
         <button className="btn btn-primary" onClick={() => handleOpenModal()}>
           <Plus size={16} /> Add Protest Event
         </button>

@@ -26,19 +26,11 @@ export interface LicenseInfo {
 export interface ApiKeys {
   anthropicKey: string;
   slackWebhookUrl: string;
-  twilioAccountSid: string;
-  twilioApiKeySid: string;
-  twilioApiKeySecret: string;
-  twilioAppSid: string;
 }
 
 const DEFAULT_API_KEYS: ApiKeys = {
   anthropicKey: '',
   slackWebhookUrl: '',
-  twilioAccountSid: '',
-  twilioApiKeySid: '',
-  twilioApiKeySecret: '',
-  twilioAppSid: '',
 };
 
 interface AppContextType {

@@ -24,7 +24,7 @@ function Sidebar() {
   const navItems = [
     { path: '/', icon: AlertTriangle, label: 'TriageLog' },
     { path: '/monitoring', icon: Monitor, label: 'Monitoring' },
-    { path: '/protest-tracker', icon: Map, label: 'Protest Tracker' },
+    { path: '/protest-tracker', icon: Map, label: 'Civil Unrest Log' },
     { path: '/voip', icon: Phone, label: 'VoIP' },
     { path: '/documents', icon: FileText, label: 'Documents' },
     { path: '/tools', icon: Wrench, label: 'Tools' },
@@ -78,7 +78,7 @@ function AppContent() {
     switch (location.pathname) {
       case '/': return 'TriageLog';
       case '/monitoring': return 'Monitoring';
-      case '/protest-tracker': return 'Protest Tracker';
+      case '/protest-tracker': return 'Civil Unrest Log';
       case '/voip': return 'VoIP';
       case '/documents': return 'Documents';
       case '/tools': return 'Tools';

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
 import { Phone, PhoneCall, PhoneOff, Mic, MicOff, Volume2, Settings, LogOut, Download, History, Gauge, Zap, User, Plus, Trash2, ArrowUpRight, ArrowDownLeft, AlertCircle } from 'lucide-react';
 import { Device, type Call } from '@twilio/voice-sdk';
-import { generateTwilioToken, isTwilioConfigured } from '../utils/twilio';
+import { fetchTwilioToken } from '../utils/twilio';
 
 const STATUSES = [
   { value: 'Available', label: 'Available', color: 'success' },
@@ -22,7 +22,7 @@ const STATUSES = [
 ];
 
 export default function VoIP() {
-  const { quickConnects, addQuickConnect, deleteQuickConnect, voipStatus, setVoipStatus, apiKeys } = useApp();
+  const { quickConnects, addQuickConnect, deleteQuickConnect, voipStatus, setVoipStatus } = useApp();
 
   const [activeTab, setActiveTab] = useState<'current' | 'quickconnects' | 'metrics' | 'history' | 'settings'>('current');
   const [dialNumber, setDialNumber] = useState('');
@@ -47,21 +47,12 @@ export default function VoIP() {
     audioEnhancement: true,
   });
 
-  const twilioConfig = {
-    accountSid: apiKeys.twilioAccountSid,
-    apiKeySid: apiKeys.twilioApiKeySid,
-    apiKeySecret: apiKeys.twilioApiKeySecret,
-    twimlAppSid: apiKeys.twilioAppSid,
-  };
-  const twilioEnabled = isTwilioConfigured(twilioConfig);
-
-  // Initialize Twilio Device when credentials are available
+  // Initialize Twilio Device via server-side token endpoint
   useEffect(() => {
-    if (!twilioEnabled) return;
     let device: Device;
     (async () => {
       try {
-        const token = await generateTwilioToken(twilioConfig, 'gsoc-agent');
+        const token = await fetchTwilioToken('gsoc-agent');
         device = new Device(token, { logLevel: 'warn' });
         device.on('ready', () => setDeviceReady(true));
         device.on('error', (err: Error) => setDeviceError(err.message));
@@ -77,12 +68,11 @@ export default function VoIP() {
         await device.register();
         deviceRef.current = device;
       } catch (err) {
-        setDeviceError(err instanceof Error ? err.message : 'Twilio init failed');
+        setDeviceError(err instanceof Error ? err.message : 'VoIP unavailable');
       }
     })();
     return () => { device?.destroy(); deviceRef.current = null; setDeviceReady(false); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [twilioEnabled, apiKeys.twilioApiKeySid, apiKeys.twilioApiKeySecret]);
+  }, []);
 
   useEffect(() => {
     if (activeCall) {
@@ -106,7 +96,7 @@ export default function VoIP() {
 
   const handleCall = async () => {
     if (!dialNumber || activeCall) return;
-    if (twilioEnabled && deviceRef.current && deviceReady) {
+    if (deviceRef.current && deviceReady) {
       try {
         const call = await deviceRef.current.connect({ params: { To: dialNumber } });
         twilioCallRef.current = call;
@@ -180,24 +170,18 @@ export default function VoIP() {
   return (
     <div className="voip-container">
       <div className="voip-main">
-        {/* Twilio status banner */}
-        {twilioEnabled ? (
-          deviceError ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'rgba(245,101,101,0.1)', border: '1px solid var(--danger)', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', color: 'var(--danger)' }}>
-              <AlertCircle size={14} /> Twilio error: {deviceError}
-            </div>
-          ) : deviceReady ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'rgba(72,187,120,0.1)', border: '1px solid var(--success)', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', color: 'var(--success)' }}>
-              <Phone size={14} /> Twilio connected — ready for calls
-            </div>
-          ) : (
-            <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg)', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-              Connecting to Twilio...
-            </div>
-          )
+        {/* VoIP status banner */}
+        {deviceError ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'rgba(245,101,101,0.1)', border: '1px solid var(--danger)', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', color: 'var(--danger)' }}>
+            <AlertCircle size={14} /> VoIP error: {deviceError} — running in simulation mode
+          </div>
+        ) : deviceReady ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'rgba(72,187,120,0.1)', border: '1px solid var(--success)', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', color: 'var(--success)' }}>
+            <Phone size={14} /> VoIP connected — ready for calls
+          </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'rgba(66,153,225,0.1)', border: '1px solid var(--info)', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', color: 'var(--info)' }}>
-            <AlertCircle size={14} /> Twilio not configured — running in simulation mode. Add credentials in Settings → Integrations.
+          <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg)', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+            Connecting to VoIP service...
           </div>
         )}
 
