@@ -14,6 +14,24 @@ import type {
   VoIPStatus
 } from '../types';
 
+export interface ApiKeys {
+  anthropicKey: string;
+  slackWebhookUrl: string;
+  twilioAccountSid: string;
+  twilioApiKeySid: string;
+  twilioApiKeySecret: string;
+  twilioAppSid: string;
+}
+
+const DEFAULT_API_KEYS: ApiKeys = {
+  anthropicKey: '',
+  slackWebhookUrl: '',
+  twilioAccountSid: '',
+  twilioApiKeySid: '',
+  twilioApiKeySecret: '',
+  twilioAppSid: '',
+};
+
 interface AppContextType {
   incidents: Incident[];
   addIncident: (incident: Omit<Incident, 'id'>) => void;
@@ -57,6 +75,8 @@ interface AppContextType {
   setDismissalReasons: (reasons: string[]) => void;
   escalationActions: string[];
   setEscalationActions: (actions: string[]) => void;
+  apiKeys: ApiKeys;
+  setApiKeys: (keys: ApiKeys) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -159,6 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [businessName, setBusinessNameState] = useState('My Company');
   const [dismissalReasons, setDismissalReasonsState] = useState<string[]>([]);
   const [escalationActions, setEscalationActionsState] = useState<string[]>([]);
+  const [apiKeys, setApiKeysState] = useState<ApiKeys>(DEFAULT_API_KEYS);
 
   const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -213,6 +234,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const ea = get('escalationActions');
       setEscalationActionsState(ea ? JSON.parse(ea) : ['Email Supervisor', 'Call Manager', 'Dispatch Security', 'Contact Police']);
+
+      const ak = get('apiKeys');
+      if (ak) setApiKeysState(JSON.parse(ak));
     });
   }, []);
 
@@ -488,6 +512,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ));
   };
 
+  const setApiKeys = (keys: ApiKeys) => {
+    setApiKeysState(keys);
+    getDb().then(db => db.execute(
+      "INSERT INTO settings(key,value) VALUES('apiKeys',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+      [JSON.stringify(keys)]
+    ));
+  };
+
   return (
     <AppContext.Provider value={{
       incidents, addIncident, updateIncident, deleteIncident,
@@ -504,6 +536,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       businessName, setBusinessName,
       dismissalReasons, setDismissalReasons,
       escalationActions, setEscalationActions,
+      apiKeys, setApiKeys,
     }}>
       {children}
     </AppContext.Provider>

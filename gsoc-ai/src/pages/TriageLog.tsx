@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useAudit } from '../store/AuditContext';
-import { Plus, Edit, Trash2, Mail, X, AlertTriangle, CheckCircle, XCircle, ArrowUpCircle, Download } from 'lucide-react';
+import { Plus, Edit, Trash2, Mail, X, AlertTriangle, CheckCircle, XCircle, ArrowUpCircle, Download, Sparkles, Loader } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Incident } from '../types';
 import { exportToCSV } from '../utils/export';
+import { triageIncident, type TriageResult } from '../utils/ai';
+import { notifySlack } from '../utils/slack';
 
 export default function TriageLog() {
   const {
@@ -18,6 +20,7 @@ export default function TriageLog() {
     escalationActions,
     emailTemplates,
     localTimezone,
+    apiKeys,
   } = useApp();
   const { currentUser } = useAuth();
   const { addAuditEntry } = useAudit();
@@ -30,6 +33,12 @@ export default function TriageLog() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [generatedEmail, setGeneratedEmail] = useState('');
+
+  // AI triage
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<TriageResult | null>(null);
+  const [aiError, setAiError] = useState('');
+  const [aiIncident, setAiIncident] = useState<Incident | null>(null);
 
   const [formData, setFormData] = useState({
     timestamp: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
@@ -168,6 +177,71 @@ export default function TriageLog() {
       escalation: { action, timestamp: new Date().toISOString() },
       status: 'escalated'
     });
+    // Notify Slack if configured
+    if (apiKeys.slackWebhookUrl) {
+      const inc = incidents.find(i => i.id === id);
+      if (inc) {
+        const location = businessLocations.find(l => l.id === inc.affectedLocation);
+        notifySlack(apiKeys.slackWebhookUrl, {
+          incidentId: inc.id,
+          location: location?.name || inc.affectedLocation,
+          details: inc.details,
+          escalationAction: action,
+          resolver: inc.resolverInitials || currentUser?.username || 'unknown',
+          timestamp: format(new Date(), 'PPpp'),
+        }).catch(() => {/* silent — Slack is best-effort */});
+      }
+    }
+  };
+
+  const handleAiTriage = async (incident: Incident) => {
+    if (!apiKeys.anthropicKey) {
+      setAiError('Anthropic API key not configured. Go to Settings → Integrations.');
+      setAiIncident(incident);
+      setAiResult(null);
+      return;
+    }
+    setAiIncident(incident);
+    setAiResult(null);
+    setAiError('');
+    setAiLoading(true);
+    try {
+      const location = businessLocations.find(l => l.id === incident.affectedLocation);
+      const result = await triageIncident(
+        incident.details,
+        incident.source,
+        location?.name || incident.affectedLocation,
+        apiKeys.anthropicKey,
+      );
+      setAiResult(result);
+      addAuditEntry({
+        username: currentUser?.username || 'unknown',
+        action: 'ai_triage',
+        entityType: 'incident',
+        entityId: incident.id,
+        details: `AI triage: ${result.severity} severity, suggested ${result.suggestedStatus}`,
+      });
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'AI triage failed');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const applyAiResult = () => {
+    if (!aiResult || !aiIncident) return;
+    updateIncident(aiIncident.id, {
+      status: aiResult.suggestedStatus,
+      dismissalReason: aiResult.suggestedDismissalReason ?? undefined,
+      escalation: aiResult.suggestedEscalation
+        ? { action: aiResult.suggestedEscalation, timestamp: new Date().toISOString() }
+        : undefined,
+      notes: aiIncident.notes
+        ? `${aiIncident.notes}\n[AI] ${aiResult.summary}`
+        : `[AI] ${aiResult.summary}`,
+    });
+    setAiResult(null);
+    setAiIncident(null);
   };
 
   const handleGenerateEmail = () => {
@@ -305,15 +379,26 @@ export default function TriageLog() {
                     </td>
                     <td>
                       <div className="actions-cell">
-                        <button 
-                          className="btn btn-secondary btn-sm" 
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => handleAiTriage(incident)}
+                          title="AI Triage"
+                          disabled={aiLoading && aiIncident?.id === incident.id}
+                          style={{ color: 'var(--accent)' }}
+                        >
+                          {aiLoading && aiIncident?.id === incident.id
+                            ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                            : <Sparkles size={14} />}
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
                           onClick={() => handleOpenModal(incident)}
                           title="Edit"
                         >
                           <Edit size={14} />
                         </button>
-                        <button 
-                          className="btn btn-secondary btn-sm" 
+                        <button
+                          className="btn btn-secondary btn-sm"
                           onClick={() => {
                             setSelectedIncident(incident);
                             setShowEmailModal(true);
@@ -540,6 +625,84 @@ export default function TriageLog() {
                 <Mail size={16} /> Open in Email Client
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Triage Modal */}
+      {aiIncident && (aiResult || aiError || aiLoading) && (
+        <div className="modal-overlay" onClick={() => { setAiResult(null); setAiIncident(null); setAiError(''); }}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={18} style={{ color: 'var(--accent)' }} /> AI Triage Result
+              </h3>
+              <button className="modal-close" onClick={() => { setAiResult(null); setAiIncident(null); setAiError(''); }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {aiLoading && (
+                <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>
+                  <Loader size={32} style={{ animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
+                  <div>Analyzing incident with Claude AI...</div>
+                </div>
+              )}
+              {aiError && (
+                <div style={{ color: 'var(--danger)', padding: '12px', backgroundColor: 'rgba(245,101,101,0.1)', borderRadius: '6px' }}>
+                  {aiError}
+                </div>
+              )}
+              {aiResult && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ padding: '12px', backgroundColor: 'var(--bg)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Summary</div>
+                    <div>{aiResult.summary}</div>
+                  </div>
+                  <div className="form-row">
+                    <div style={{ padding: '12px', backgroundColor: 'var(--bg)', borderRadius: '8px', flex: 1 }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Severity</div>
+                      <span className={`status-badge status-${aiResult.severity === 'critical' || aiResult.severity === 'high' ? 'escalated' : aiResult.severity === 'medium' ? 'open' : 'active'}`}>
+                        {aiResult.severity.toUpperCase()}
+                      </span>
+                    </div>
+                    <div style={{ padding: '12px', backgroundColor: 'var(--bg)', borderRadius: '8px', flex: 1 }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Suggested Status</div>
+                      <span className={`status-badge status-${aiResult.suggestedStatus}`}>{aiResult.suggestedStatus}</span>
+                    </div>
+                  </div>
+                  {aiResult.suggestedDismissalReason && (
+                    <div style={{ padding: '12px', backgroundColor: 'var(--bg)', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Suggested Dismissal Reason</div>
+                      <div>{aiResult.suggestedDismissalReason}</div>
+                    </div>
+                  )}
+                  {aiResult.suggestedEscalation && (
+                    <div style={{ padding: '12px', backgroundColor: 'var(--bg)', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Suggested Escalation</div>
+                      <div>{aiResult.suggestedEscalation}</div>
+                    </div>
+                  )}
+                  {aiResult.tags.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {aiResult.tags.map(tag => (
+                        <span key={tag} className="status-badge status-open" style={{ fontSize: '11px' }}>{tag}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {aiResult && (
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => { setAiResult(null); setAiIncident(null); }}>
+                  Dismiss
+                </button>
+                <button type="button" className="btn btn-primary" onClick={applyAiResult}>
+                  <Sparkles size={16} /> Apply Suggestions
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

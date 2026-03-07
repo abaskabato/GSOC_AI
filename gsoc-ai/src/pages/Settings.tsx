@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useAudit } from '../store/AuditContext';
-import { Building, Camera, X, Plus, Trash2, Settings as SettingsIcon, AlertCircle, Users, ClipboardList, Eye, EyeOff, Download, ExternalLink } from 'lucide-react';
+import { Building, Camera, X, Plus, Trash2, Settings as SettingsIcon, AlertCircle, Users, ClipboardList, Eye, EyeOff, Download, ExternalLink, Key, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import type { BusinessLocation, CameraSource } from '../types';
 import type { User } from '../store/AuthContext';
@@ -15,12 +15,16 @@ export default function Settings() {
     dismissalReasons, setDismissalReasons,
     escalationActions, setEscalationActions,
     cameraSources, addCameraSource, updateCameraSource, deleteCameraSource,
+    apiKeys, setApiKeys,
   } = useApp();
 
   const { currentUser, users, addUser, updateUser, deleteUser, changePassword } = useAuth();
   const { auditLog, clearAuditLog } = useAudit();
 
-  const [activeTab, setActiveTab] = useState<'business' | 'customize' | 'cameras' | 'users' | 'audit'>('business');
+  const [activeTab, setActiveTab] = useState<'business' | 'customize' | 'cameras' | 'users' | 'audit' | 'integrations'>('business');
+  const [apiKeyForm, setApiKeyForm] = useState({ ...apiKeys });
+  const [showApiKeys, setShowApiKeys] = useState<Record<string, boolean>>({});
+  const [apiKeySaved, setApiKeySaved] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [showDismissalModal, setShowDismissalModal] = useState(false);
@@ -148,6 +152,9 @@ export default function Settings() {
         </div>
         <div className={`tab ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>
           <ClipboardList size={16} style={{ marginRight: '8px' }} /> Audit Log
+        </div>
+        <div className={`tab ${activeTab === 'integrations' ? 'active' : ''}`} onClick={() => { setActiveTab('integrations'); setApiKeyForm({ ...apiKeys }); }}>
+          <Key size={16} style={{ marginRight: '8px' }} /> Integrations
         </div>
       </div>
 
@@ -403,6 +410,121 @@ export default function Settings() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Integrations Tab ── */}
+      {activeTab === 'integrations' && (
+        <div>
+          {apiKeySaved && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', backgroundColor: 'rgba(72,187,120,0.15)', border: '1px solid var(--success)', borderRadius: '6px', marginBottom: '16px', color: 'var(--success)', fontSize: '13px' }}>
+              <CheckCircle size={14} /> API keys saved successfully.
+            </div>
+          )}
+
+          {/* Claude AI */}
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title">Claude AI (Anthropic)</h3>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Powers AI triage in TriageLog</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">API Key</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showApiKeys['anthropic'] ? 'text' : 'password'}
+                  className="form-input"
+                  value={apiKeyForm.anthropicKey}
+                  onChange={e => setApiKeyForm({ ...apiKeyForm, anthropicKey: e.target.value })}
+                  placeholder="sk-ant-..."
+                  style={{ paddingRight: '40px' }}
+                />
+                <button type="button" onClick={() => setShowApiKeys(s => ({ ...s, anthropic: !s.anthropic }))} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                  {showApiKeys['anthropic'] ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                Get your key at console.anthropic.com
+              </div>
+            </div>
+          </div>
+
+          {/* Slack */}
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title">Slack</h3>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Notifies a channel on incident escalation</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Incoming Webhook URL</label>
+              <input
+                type="text"
+                className="form-input"
+                value={apiKeyForm.slackWebhookUrl}
+                onChange={e => setApiKeyForm({ ...apiKeyForm, slackWebhookUrl: e.target.value })}
+                placeholder="https://hooks.slack.com/services/..."
+              />
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                Create at api.slack.com/apps → Incoming Webhooks
+              </div>
+            </div>
+          </div>
+
+          {/* Twilio */}
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title">Twilio Voice</h3>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Enables real outbound/inbound calls in VoIP</span>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Account SID</label>
+                <input type="text" className="form-input" value={apiKeyForm.twilioAccountSid} onChange={e => setApiKeyForm({ ...apiKeyForm, twilioAccountSid: e.target.value })} placeholder="ACxxxxxxxxxxxxxxxx" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">API Key SID</label>
+                <input type="text" className="form-input" value={apiKeyForm.twilioApiKeySid} onChange={e => setApiKeyForm({ ...apiKeyForm, twilioApiKeySid: e.target.value })} placeholder="SKxxxxxxxxxxxxxxxx" />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">API Key Secret</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showApiKeys['twilioSecret'] ? 'text' : 'password'}
+                    className="form-input"
+                    value={apiKeyForm.twilioApiKeySecret}
+                    onChange={e => setApiKeyForm({ ...apiKeyForm, twilioApiKeySecret: e.target.value })}
+                    placeholder="Secret"
+                    style={{ paddingRight: '40px' }}
+                  />
+                  <button type="button" onClick={() => setShowApiKeys(s => ({ ...s, twilioSecret: !s.twilioSecret }))} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                    {showApiKeys['twilioSecret'] ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">TwiML App SID</label>
+                <input type="text" className="form-input" value={apiKeyForm.twilioAppSid} onChange={e => setApiKeyForm({ ...apiKeyForm, twilioAppSid: e.target.value })} placeholder="APxxxxxxxxxxxxxxxx" />
+              </div>
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+              Create at console.twilio.com → Voice → TwiML Apps. Requires a TwiML App with a Voice Request URL pointing to your webhook.
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setApiKeys(apiKeyForm);
+                setApiKeySaved(true);
+                setTimeout(() => setApiKeySaved(false), 3000);
+              }}
+            >
+              <Key size={16} /> Save API Keys
+            </button>
           </div>
         </div>
       )}

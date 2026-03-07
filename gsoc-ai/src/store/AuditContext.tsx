@@ -6,7 +6,7 @@ export interface AuditEntry {
   id: string;
   timestamp: string;
   username: string;
-  action: 'created' | 'updated' | 'deleted' | 'login' | 'logout' | 'login_failed' | 'exported' | 'uploaded';
+  action: 'created' | 'updated' | 'deleted' | 'login' | 'logout' | 'login_failed' | 'exported' | 'uploaded' | 'ai_triage';
   entityType: string;
   entityId?: string;
   details: string;

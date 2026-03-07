@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
-import { Phone, PhoneCall, PhoneOff, Mic, MicOff, Volume2, Settings, LogOut, Download, History, Gauge, Zap, User, Plus, Trash2, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Phone, PhoneCall, PhoneOff, Mic, MicOff, Volume2, Settings, LogOut, Download, History, Gauge, Zap, User, Plus, Trash2, ArrowUpRight, ArrowDownLeft, AlertCircle } from 'lucide-react';
+import { Device, type Call } from '@twilio/voice-sdk';
+import { generateTwilioToken, isTwilioConfigured } from '../utils/twilio';
 
 const STATUSES = [
   { value: 'Available', label: 'Available', color: 'success' },
@@ -20,8 +22,8 @@ const STATUSES = [
 ];
 
 export default function VoIP() {
-  const { quickConnects, addQuickConnect, deleteQuickConnect, voipStatus, setVoipStatus } = useApp();
-  
+  const { quickConnects, addQuickConnect, deleteQuickConnect, voipStatus, setVoipStatus, apiKeys } = useApp();
+
   const [activeTab, setActiveTab] = useState<'current' | 'quickconnects' | 'metrics' | 'history' | 'settings'>('current');
   const [dialNumber, setDialNumber] = useState('');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
@@ -29,13 +31,14 @@ export default function VoIP() {
   const [newQuickConnect, setNewQuickConnect] = useState({ name: '', number: '' });
   const [activeCall, setActiveCall] = useState<{ number: string; startTime: Date; muted: boolean; held: boolean } | null>(null);
   const [callDuration, setCallDuration] = useState(0);
-  const [callHistory, setCallHistory] = useState([
-    { id: '1', type: 'outbound', number: '555-0123', duration: '5:23', time: '10:30 AM' },
-    { id: '2', type: 'inbound', number: '555-0456', duration: '3:12', time: '10:15 AM' },
-    { id: '3', type: 'outbound', number: '555-0789', duration: '8:45', time: '09:45 AM' },
-    { id: '4', type: 'inbound', number: '555-0321', duration: '2:30', time: '09:20 AM' },
-  ]);
+  const [callHistory, setCallHistory] = useState<{ id: string; type: string; number: string; duration: string; time: string }[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Twilio Device
+  const deviceRef = useRef<Device | null>(null);
+  const twilioCallRef = useRef<Call | null>(null);
+  const [deviceReady, setDeviceReady] = useState(false);
+  const [deviceError, setDeviceError] = useState('');
 
   const [audioSettings, setAudioSettings] = useState({
     speaker: 'Default',
@@ -43,6 +46,43 @@ export default function VoIP() {
     ringer: 'Default',
     audioEnhancement: true,
   });
+
+  const twilioConfig = {
+    accountSid: apiKeys.twilioAccountSid,
+    apiKeySid: apiKeys.twilioApiKeySid,
+    apiKeySecret: apiKeys.twilioApiKeySecret,
+    twimlAppSid: apiKeys.twilioAppSid,
+  };
+  const twilioEnabled = isTwilioConfigured(twilioConfig);
+
+  // Initialize Twilio Device when credentials are available
+  useEffect(() => {
+    if (!twilioEnabled) return;
+    let device: Device;
+    (async () => {
+      try {
+        const token = await generateTwilioToken(twilioConfig, 'gsoc-agent');
+        device = new Device(token, { logLevel: 'warn' });
+        device.on('ready', () => setDeviceReady(true));
+        device.on('error', (err: Error) => setDeviceError(err.message));
+        device.on('incoming', (call: Call) => {
+          twilioCallRef.current = call;
+          setActiveCall({ number: call.parameters.From || 'Unknown', startTime: new Date(), muted: false, held: false });
+          call.accept();
+        });
+        device.on('disconnect', () => {
+          setActiveCall(null);
+          twilioCallRef.current = null;
+        });
+        await device.register();
+        deviceRef.current = device;
+      } catch (err) {
+        setDeviceError(err instanceof Error ? err.message : 'Twilio init failed');
+      }
+    })();
+    return () => { device?.destroy(); deviceRef.current = null; setDeviceReady(false); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [twilioEnabled, apiKeys.twilioApiKeySid, apiKeys.twilioApiKeySecret]);
 
   useEffect(() => {
     if (activeCall) {
@@ -64,22 +104,45 @@ export default function VoIP() {
     return `${m}:${s}`;
   };
 
-  const handleCall = () => {
-    if (dialNumber && !activeCall) {
+  const handleCall = async () => {
+    if (!dialNumber || activeCall) return;
+    if (twilioEnabled && deviceRef.current && deviceReady) {
+      try {
+        const call = await deviceRef.current.connect({ params: { To: dialNumber } });
+        twilioCallRef.current = call;
+        call.on('disconnect', () => {
+          const duration = formatDuration(callDuration);
+          const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          setCallHistory(prev => [{ id: Date.now().toString(), type: 'outbound', number: dialNumber, duration, time }, ...prev]);
+          setActiveCall(null);
+          twilioCallRef.current = null;
+          setDialNumber('');
+        });
+        setActiveCall({ number: dialNumber, startTime: new Date(), muted: false, held: false });
+      } catch (err) {
+        setDeviceError(err instanceof Error ? err.message : 'Call failed');
+      }
+    } else {
+      // No Twilio — simulated mode
       setActiveCall({ number: dialNumber, startTime: new Date(), muted: false, held: false });
     }
   };
 
   const handleHangup = () => {
     if (!activeCall) return;
-    const duration = formatDuration(callDuration);
-    const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    setCallHistory(prev => [
-      { id: Date.now().toString(), type: 'outbound', number: activeCall.number, duration, time },
-      ...prev,
-    ]);
-    setActiveCall(null);
-    setDialNumber('');
+    if (twilioCallRef.current) {
+      twilioCallRef.current.disconnect();
+    } else {
+      // Simulated
+      const duration = formatDuration(callDuration);
+      const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      setCallHistory(prev => [
+        { id: Date.now().toString(), type: 'outbound', number: activeCall.number, duration, time },
+        ...prev,
+      ]);
+      setActiveCall(null);
+      setDialNumber('');
+    }
   };
 
   const handleClear = () => {
@@ -117,6 +180,27 @@ export default function VoIP() {
   return (
     <div className="voip-container">
       <div className="voip-main">
+        {/* Twilio status banner */}
+        {twilioEnabled ? (
+          deviceError ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'rgba(245,101,101,0.1)', border: '1px solid var(--danger)', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', color: 'var(--danger)' }}>
+              <AlertCircle size={14} /> Twilio error: {deviceError}
+            </div>
+          ) : deviceReady ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'rgba(72,187,120,0.1)', border: '1px solid var(--success)', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', color: 'var(--success)' }}>
+              <Phone size={14} /> Twilio connected — ready for calls
+            </div>
+          ) : (
+            <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg)', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              Connecting to Twilio...
+            </div>
+          )
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'rgba(66,153,225,0.1)', border: '1px solid var(--info)', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', color: 'var(--info)' }}>
+            <AlertCircle size={14} /> Twilio not configured — running in simulation mode. Add credentials in Settings → Integrations.
+          </div>
+        )}
+
         <div className="tabs">
           <div className={`tab ${activeTab === 'current' ? 'active' : ''}`} onClick={() => setActiveTab('current')}>
             <Phone size={16} style={{ marginRight: '8px' }} /> Current
@@ -153,7 +237,10 @@ export default function VoIP() {
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={() => setActiveCall(c => c ? { ...c, muted: !c.muted } : null)}
+                onClick={() => {
+                  if (twilioCallRef.current) twilioCallRef.current.mute(!activeCall.muted);
+                  setActiveCall(c => c ? { ...c, muted: !c.muted } : null);
+                }}
                 style={{ minWidth: '72px' }}
               >
                 <Mic size={14} /> {activeCall.muted ? 'Unmute' : 'Mute'}
