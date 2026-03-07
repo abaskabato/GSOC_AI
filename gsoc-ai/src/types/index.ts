@@ -63,6 +63,9 @@ export interface Document {
   name: string;
   category: string;
   content: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
   createdAt: string;
   updatedAt: string;
 }

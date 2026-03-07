@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { Plus, Search, Edit, Trash2, Mail, X, AlertTriangle, CheckCircle, XCircle, ArrowUpCircle } from 'lucide-react';
+import { useAuth } from '../store/AuthContext';
+import { useAudit } from '../store/AuditContext';
+import { Plus, Edit, Trash2, Mail, X, AlertTriangle, CheckCircle, XCircle, ArrowUpCircle, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Incident } from '../types';
+import { exportToCSV } from '../utils/export';
 
 export default function TriageLog() {
-  const { 
-    incidents, 
-    addIncident, 
-    updateIncident, 
+  const {
+    incidents,
+    addIncident,
+    updateIncident,
     deleteIncident,
     businessLocations,
     dismissalReasons,
@@ -16,6 +19,8 @@ export default function TriageLog() {
     emailTemplates,
     localTimezone,
   } = useApp();
+  const { currentUser } = useAuth();
+  const { addAuditEntry } = useAudit();
 
   const [showModal, setShowModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -100,12 +105,58 @@ export default function TriageLog() {
 
     if (editingIncident) {
       updateIncident(editingIncident.id, incidentData);
+      addAuditEntry({
+        username: currentUser?.username || 'unknown',
+        action: 'updated',
+        entityType: 'incident',
+        entityId: editingIncident.id,
+        details: `Updated incident: ${formData.details.slice(0, 80)}`,
+      });
     } else {
       addIncident(incidentData);
+      addAuditEntry({
+        username: currentUser?.username || 'unknown',
+        action: 'created',
+        entityType: 'incident',
+        details: `Created incident from ${formData.source}: ${formData.details.slice(0, 80)}`,
+      });
     }
 
     setShowModal(false);
     resetForm();
+  };
+
+  const handleDelete = (incident: Incident) => {
+    deleteIncident(incident.id);
+    addAuditEntry({
+      username: currentUser?.username || 'unknown',
+      action: 'deleted',
+      entityType: 'incident',
+      entityId: incident.id,
+      details: `Deleted incident: ${incident.details.slice(0, 80)}`,
+    });
+  };
+
+  const handleExportCSV = () => {
+    const rows = filteredIncidents.map(inc => ({
+      Timestamp: format(new Date(inc.timestamp), 'MM/dd/yyyy HH:mm'),
+      Source: inc.source,
+      Location: businessLocations.find(l => l.id === inc.affectedLocation)?.name || inc.affectedLocation,
+      Details: inc.details,
+      Status: inc.status,
+      DismissalReason: inc.dismissalReason || '',
+      EscalationAction: inc.escalation?.action || '',
+      Notes: inc.notes,
+      Resolver: inc.resolverInitials,
+      HoursOfOperation: inc.hoursOfOperation,
+    }));
+    exportToCSV(rows, `incidents-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    addAuditEntry({
+      username: currentUser?.username || 'unknown',
+      action: 'exported',
+      entityType: 'incident',
+      details: `Exported ${rows.length} incidents to CSV`,
+    });
   };
 
   const handleDismiss = (id: string, reason: string) => {
@@ -113,9 +164,9 @@ export default function TriageLog() {
   };
 
   const handleEscalate = (id: string, action: string) => {
-    updateIncident(id, { 
-      escalation: { action, timestamp: new Date().toISOString() }, 
-      status: 'escalated' 
+    updateIncident(id, {
+      escalation: { action, timestamp: new Date().toISOString() },
+      status: 'escalated'
     });
   };
 
@@ -165,9 +216,14 @@ export default function TriageLog() {
     <div>
       <div className="page-header">
         <h1 className="page-title">TriageLog</h1>
-        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-          <Plus size={16} /> New Incident
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn btn-secondary" onClick={handleExportCSV} disabled={filteredIncidents.length === 0}>
+            <Download size={16} /> Export CSV
+          </button>
+          <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+            <Plus size={16} /> New Incident
+          </button>
+        </div>
       </div>
 
       <div className="search-bar">
@@ -247,9 +303,9 @@ export default function TriageLog() {
                         >
                           <Mail size={14} />
                         </button>
-                        <button 
-                          className="btn btn-danger btn-sm" 
-                          onClick={() => deleteIncident(incident.id)}
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleDelete(incident)}
                           title="Delete"
                         >
                           <Trash2 size={14} />

@@ -1,5 +1,9 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from './store/AppContext';
+import { AuthProvider, useAuth } from './store/AuthContext';
+import { AuditProvider } from './store/AuditContext';
+import Login from './pages/Login';
+import ErrorBoundary from './components/ErrorBoundary';
 import TriageLog from './pages/TriageLog';
 import Monitoring from './pages/Monitoring';
 import ProtestTracker from './pages/ProtestTracker';
@@ -8,11 +12,14 @@ import Documents from './pages/Documents';
 import Tools from './pages/Tools';
 import Settings from './pages/Settings';
 import Integrations from './pages/Integrations';
-import { Shield, Map, Phone, FileText, Wrench, Settings as SettingsIcon, Monitor, AlertTriangle, Plug } from 'lucide-react';
+import {
+  Shield, Map, Phone, FileText, Wrench,
+  Settings as SettingsIcon, Monitor, AlertTriangle, Plug,
+  LogOut, User, KeyRound,
+} from 'lucide-react';
 
 function Sidebar() {
   const { businessName } = useApp();
-  const location = useLocation();
 
   const navItems = [
     { path: '/', icon: AlertTriangle, label: 'TriageLog' },
@@ -49,8 +56,24 @@ function Sidebar() {
 }
 
 function AppContent() {
+  const { currentUser, isAuthenticated, isInitialized, logout } = useAuth();
   const location = useLocation();
-  
+
+  if (!isInitialized) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100vh', backgroundColor: 'var(--bg)', color: 'var(--text-secondary)',
+      }}>
+        Loading...
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
   const getPageTitle = () => {
     switch (location.pathname) {
       case '/': return 'TriageLog';
@@ -75,19 +98,46 @@ function AppContent() {
             <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
               {new Date().toLocaleString()}
             </span>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              color: 'var(--text-secondary)', fontSize: '12px',
+              padding: '4px 10px', backgroundColor: 'var(--bg)', borderRadius: '4px',
+            }}>
+              <User size={14} />
+              <span>{currentUser?.username}</span>
+              <span style={{ opacity: 0.6 }}>({currentUser?.role})</span>
+            </div>
+
+            {currentUser?.forcePasswordChange && (
+              <NavLink to="/settings" style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                backgroundColor: 'rgba(236,201,75,0.15)', color: 'var(--warning)',
+                padding: '4px 10px', borderRadius: '4px', fontSize: '12px',
+                textDecoration: 'none',
+              }}>
+                <KeyRound size={13} /> Change default password
+              </NavLink>
+            )}
+
+            <button className="btn btn-secondary btn-sm" onClick={logout}>
+              <LogOut size={14} /> Logout
+            </button>
           </div>
         </header>
+
         <div className="content">
-          <Routes>
-            <Route path="/" element={<TriageLog />} />
-            <Route path="/monitoring" element={<Monitoring />} />
-            <Route path="/protest-tracker" element={<ProtestTracker />} />
-            <Route path="/voip" element={<VoIP />} />
-            <Route path="/documents" element={<Documents />} />
-            <Route path="/tools" element={<Tools />} />
-            <Route path="/integrations" element={<Integrations />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<TriageLog />} />
+              <Route path="/monitoring" element={<Monitoring />} />
+              <Route path="/protest-tracker" element={<ProtestTracker />} />
+              <Route path="/voip" element={<VoIP />} />
+              <Route path="/documents" element={<Documents />} />
+              <Route path="/tools" element={<Tools />} />
+              <Route path="/integrations" element={<Integrations />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </ErrorBoundary>
         </div>
       </main>
     </div>
@@ -97,9 +147,13 @@ function AppContent() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppProvider>
-        <AppContent />
-      </AppProvider>
+      <AuthProvider>
+        <AuditProvider>
+          <AppProvider>
+            <AppContent />
+          </AppProvider>
+        </AuditProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

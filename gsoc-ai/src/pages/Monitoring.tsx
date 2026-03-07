@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { Plus, Edit, Trash2, X, Monitor, Clock, Eye } from 'lucide-react';
+import { useAuth } from '../store/AuthContext';
+import { useAudit } from '../store/AuditContext';
+import { Plus, Edit, Trash2, X, Monitor, Clock, Eye, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import type { MonitoringRequest } from '../types';
+import { exportToCSV } from '../utils/export';
 
 export default function Monitoring() {
   const {
@@ -14,6 +17,8 @@ export default function Monitoring() {
     addMonitoringLog,
     businessLocations,
   } = useApp();
+  const { currentUser } = useAuth();
+  const { addAuditEntry } = useAudit();
 
   const [showModal, setShowModal] = useState(false);
   const [showLogModal, setShowLogModal] = useState(false);
@@ -89,8 +94,10 @@ export default function Monitoring() {
 
     if (editingRequest) {
       updateMonitoringRequest(editingRequest.id, requestData);
+      addAuditEntry({ username: currentUser?.username || 'unknown', action: 'updated', entityType: 'monitoring_request', entityId: editingRequest.id, details: `Updated monitoring request for ${formData.requestor}` });
     } else {
       addMonitoringRequest(requestData);
+      addAuditEntry({ username: currentUser?.username || 'unknown', action: 'created', entityType: 'monitoring_request', details: `Created monitoring request for ${formData.requestor} at interval ${formData.interval}` });
     }
 
     setShowModal(false);
@@ -155,9 +162,42 @@ export default function Monitoring() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Monitoring</h1>
-        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-          <Plus size={16} /> New Request
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              if (activeTab === 'requests') {
+                const rows = filteredRequests.map(r => ({
+                  Requestor: r.requestor,
+                  Contact: r.requestorContact,
+                  Location: businessLocations.find(l => l.id === r.location)?.name || r.location,
+                  Interval: getIntervalLabel(r.interval),
+                  Start: format(new Date(r.startDateTime), 'MM/dd/yyyy HH:mm'),
+                  End: format(new Date(r.endDateTime), 'MM/dd/yyyy HH:mm'),
+                  Status: r.locationStatus,
+                  Justification: r.justification,
+                }));
+                exportToCSV(rows, `monitoring-requests-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+              } else {
+                const rows = filteredLogs.map(l => ({
+                  TimeChecked: format(new Date(l.timeChecked), 'MM/dd/yyyy HH:mm'),
+                  Location: l.locationName,
+                  Interval: getIntervalLabel(l.interval),
+                  CameraStatus: l.cameraStatus,
+                  Observation: l.observation,
+                  Initials: l.initials,
+                }));
+                exportToCSV(rows, `monitoring-logs-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+              }
+              addAuditEntry({ username: currentUser?.username || 'unknown', action: 'exported', entityType: 'monitoring', details: `Exported monitoring ${activeTab} to CSV` });
+            }}
+          >
+            <Download size={16} /> Export CSV
+          </button>
+          <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+            <Plus size={16} /> New Request
+          </button>
+        </div>
       </div>
 
       <div className="tabs">

@@ -560,6 +560,81 @@ body {
   font-weight: 600;
 }
 
+/* ── Login ── */
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: var(--bg);
+  padding: 24px;
+}
+
+.login-card {
+  background-color: var(--surface);
+  border-radius: 12px;
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 12px 0 4px;
+}
+
+.login-header p {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.login-error {
+  background-color: rgba(245, 101, 101, 0.15);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.login-footer {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ── File Upload ── */
+.file-upload-area {
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 150ms ease-in-out;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.file-upload-area:hover {
+  border-color: var(--accent);
+  background-color: rgba(0, 212, 170, 0.05);
+  color: var(--text-primary);
+}
+
 @media (max-width: 1024px) {
   .tools-grid {
     grid-template-columns: 1fr;
