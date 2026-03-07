@@ -229,7 +229,7 @@ export default function Settings() {
       {/* ── Cameras Tab ── */}
       {activeTab === 'cameras' && (
         <div>
-          <div className="card" style={{ backgroundColor: 'var(--primary)', marginBottom: '16px' }}>
+          <div className="info-banner">
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <AlertCircle size={24} />
               <div>

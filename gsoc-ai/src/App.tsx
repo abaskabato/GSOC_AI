@@ -102,6 +102,7 @@ function AppContent() {
               display: 'flex', alignItems: 'center', gap: '6px',
               color: 'var(--text-secondary)', fontSize: '12px',
               padding: '4px 10px', backgroundColor: 'var(--bg)', borderRadius: '4px',
+              border: '1px solid var(--border)',
             }}>
               <User size={14} />
               <span>{currentUser?.username}</span>

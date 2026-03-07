@@ -122,7 +122,7 @@ export default function ProtestTracker() {
         </button>
       </div>
 
-      <div className="card" style={{ marginBottom: '16px', backgroundColor: 'var(--primary)' }}>
+      <div className="info-banner">
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Globe size={20} />

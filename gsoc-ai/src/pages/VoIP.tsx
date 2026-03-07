@@ -108,43 +108,30 @@ export default function VoIP() {
         {activeTab === 'current' && (
           <div className="card">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-              <div 
-                className="status-indicator" 
-                onClick={() => setShowStatusMenu(!showStatusMenu)}
-                style={{ cursor: 'pointer', padding: '8px 16px', backgroundColor: 'var(--bg)', borderRadius: '8px' }}
-              >
-                <span className={`status-dot ${getCurrentStatus().color === 'success' ? 'available' : getCurrentStatus().color === 'warning' ? 'not-ready' : 'offline'}`}></span>
-                <span style={{ fontWeight: 500 }}>{getCurrentStatus().label}</span>
-              </div>
-              
-              {showStatusMenu && (
-                <div style={{
-                  position: 'absolute',
-                  top: '200px',
-                  left: '250px',
-                  backgroundColor: 'var(--surface)',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                  maxHeight: '300px',
-                  overflow: 'auto',
-                  zIndex: 100,
-                }}>
-                  {STATUSES.map(status => (
-                    <div
-                      key={status.value}
-                      onClick={() => handleStatusChange(status.value)}
-                      style={{
-                        padding: '10px 16px',
-                        cursor: 'pointer',
-                        borderBottom: '1px solid rgba(255,255,255,0.1)',
-                      }}
-                      className="nav-item"
-                    >
-                      {status.label}
-                    </div>
-                  ))}
+              <div style={{ position: 'relative' }}>
+                <div
+                  className="status-indicator"
+                  onClick={() => setShowStatusMenu(!showStatusMenu)}
+                  style={{ cursor: 'pointer', padding: '8px 14px', backgroundColor: 'var(--bg)', borderRadius: '6px', border: '1px solid var(--border)' }}
+                >
+                  <span className={`status-dot ${getCurrentStatus().color === 'success' ? 'available' : getCurrentStatus().color === 'warning' ? 'not-ready' : 'offline'}`}></span>
+                  <span style={{ fontWeight: 500, fontSize: '13.5px' }}>{getCurrentStatus().label}</span>
                 </div>
-              )}
+
+                {showStatusMenu && (
+                  <div className="status-menu">
+                    {STATUSES.map(status => (
+                      <div
+                        key={status.value}
+                        onClick={() => handleStatusChange(status.value)}
+                        className="status-menu-item"
+                      >
+                        {status.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div style={{ textAlign: 'center', marginBottom: '24px' }}>
@@ -348,7 +335,7 @@ export default function VoIP() {
               </label>
             </div>
 
-            <div style={{ marginTop: '32px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ marginTop: '32px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
               <h3 className="card-title" style={{ marginBottom: '16px' }}>Other Settings</h3>
               <div className="form-group">
                 <label className="form-label">Language</label>

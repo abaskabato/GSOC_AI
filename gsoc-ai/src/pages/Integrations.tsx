@@ -270,7 +270,7 @@ export default function Integrations() {
         <h1 className="page-title">Integrations</h1>
       </div>
 
-      <div className="card" style={{ marginBottom: '16px', backgroundColor: 'var(--primary)' }}>
+      <div className="info-banner">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h3 style={{ marginBottom: '8px' }}>Auto-Population Settings</h3>

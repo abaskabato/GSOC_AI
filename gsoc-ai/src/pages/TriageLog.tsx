@@ -226,6 +226,25 @@ export default function TriageLog() {
         </div>
       </div>
 
+      <div className="stats-row">
+        <div className="stat-card">
+          <span className="stat-card-label">Open</span>
+          <span className="stat-card-value info">{incidents.filter(i => i.status === 'open').length}</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-card-label">Escalated</span>
+          <span className="stat-card-value warning">{incidents.filter(i => i.status === 'escalated').length}</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-card-label">Resolved</span>
+          <span className="stat-card-value success">{incidents.filter(i => i.status === 'resolved').length}</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-card-label">Dismissed</span>
+          <span className="stat-card-value">{incidents.filter(i => i.status === 'dismissed').length}</span>
+        </div>
+      </div>
+
       <div className="search-bar">
         <input
           type="text"
