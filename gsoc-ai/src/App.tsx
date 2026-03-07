@@ -12,10 +12,11 @@ import Documents from './pages/Documents';
 import Tools from './pages/Tools';
 import Settings from './pages/Settings';
 import Integrations from './pages/Integrations';
+import Training from './pages/Training';
 import {
   Shield, Map, Phone, FileText, Wrench,
   Settings as SettingsIcon, Monitor, AlertTriangle, Plug,
-  LogOut, User, KeyRound,
+  LogOut, User, KeyRound, BookOpen,
 } from 'lucide-react';
 
 function Sidebar() {
@@ -28,6 +29,7 @@ function Sidebar() {
     { path: '/voip', icon: Phone, label: 'VoIP' },
     { path: '/documents', icon: FileText, label: 'Documents' },
     { path: '/tools', icon: Wrench, label: 'Tools' },
+    { path: '/training', icon: BookOpen, label: 'Training' },
     { path: '/integrations', icon: Plug, label: 'Integrations' },
     { path: '/settings', icon: SettingsIcon, label: 'Settings' },
   ];
@@ -82,6 +84,7 @@ function AppContent() {
       case '/voip': return 'VoIP';
       case '/documents': return 'Documents';
       case '/tools': return 'Tools';
+      case '/training': return 'Training';
       case '/integrations': return 'Integrations';
       case '/settings': return 'Settings';
       default: return 'GSOC AI';
@@ -135,6 +138,7 @@ function AppContent() {
               <Route path="/voip" element={<VoIP />} />
               <Route path="/documents" element={<Documents />} />
               <Route path="/tools" element={<Tools />} />
+              <Route path="/training" element={<Training />} />
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>

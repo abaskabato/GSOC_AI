@@ -330,3 +330,66 @@ export async function sendEverbridgeAlert(
   });
   if (!res.ok) throw new Error(`Everbridge ${res.status}: ${await res.text()}`);
 }
+
+// ── X (Twitter) v2 Recent Search ──────────────────────────────────────────────
+// Docs: https://developer.twitter.com/en/docs/twitter-api/tweets/search/api-reference/get-tweets-search-recent
+// Requires: X API v2 Bearer Token (Basic tier or above)
+
+const CRITICAL_X = /\b(shooting|gunshot|explosion|bomb|fire|hostage|terror|attack|active.shooter|mass.casualty)\b/i;
+const HIGH_X     = /\b(fight|assault|robbery|stabbing|weapon|gun|knife|threat|emergency|police|911|violence|looting|arrested)\b/i;
+const MEDIUM_X   = /\b(suspicious|incident|alert|warning|disturbance|argument|vandal|break.?in|trespas)\b/i;
+
+function classifyXSeverity(text: string): AlertResult['severity'] {
+  if (CRITICAL_X.test(text)) return 'critical';
+  if (HIGH_X.test(text)) return 'high';
+  if (MEDIUM_X.test(text)) return 'medium';
+  return 'low';
+}
+
+export async function fetchXAlerts(
+  config: Record<string, string>,
+  since: string,
+): Promise<AlertResult[]> {
+  const bearerToken = config.bearer_token;
+  const rawKeywords = (config.keywords ?? '').split(',').map(k => k.trim()).filter(Boolean);
+  if (!bearerToken || rawKeywords.length === 0) return [];
+
+  const lang = config.language?.trim() || 'en';
+  const langClause = lang ? ` lang:${lang}` : '';
+  const query = `(${rawKeywords.map(k => `"${k}"`).join(' OR ')}) -is:retweet${langClause}`;
+
+  const url = new URL('https://api.twitter.com/2/tweets/search/recent');
+  url.searchParams.set('query', query);
+  url.searchParams.set('max_results', '50');
+  url.searchParams.set('start_time', new Date(since).toISOString());
+  url.searchParams.set('tweet.fields', 'created_at,geo,entities,author_id,text');
+  url.searchParams.set('expansions', 'geo.place_id');
+  url.searchParams.set('place.fields', 'geo,name,place_type,full_name');
+
+  const res = await fetch(url.toString(), {
+    headers: { 'Authorization': `Bearer ${bearerToken}`, 'Accept': 'application/json' },
+  });
+  if (res.status === 429) throw new Error('X API rate limit reached — reduce polling frequency');
+  if (!res.ok) throw new Error(`X API ${res.status}: ${await res.text()}`);
+
+  const data = await res.json();
+  const tweets: any[] = data.data ?? [];
+  const places: any[] = data.includes?.places ?? [];
+
+  return tweets.map(t => {
+    const place = places.find((p: any) => p.id === t.geo?.place_id);
+    const bbox: number[] | undefined = place?.geo?.bbox;
+    const lat = bbox ? (bbox[1] + bbox[3]) / 2 : undefined;
+    const lon = bbox ? (bbox[0] + bbox[2]) / 2 : undefined;
+    return {
+      externalId: String(t.id),
+      title: t.text.length > 120 ? t.text.slice(0, 117) + '...' : t.text,
+      description: `${t.text}${place ? ` [near ${place.full_name ?? place.name}]` : ''}`,
+      severity: classifyXSeverity(t.text),
+      lat,
+      lon,
+      timestamp: t.created_at ?? new Date().toISOString(),
+      source: 'X (Twitter)',
+    };
+  });
+}

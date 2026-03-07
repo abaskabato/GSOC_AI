@@ -9,11 +9,11 @@ export const metadata = {
 
 export default function Privacy() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <nav className="border-b border-slate-800 px-6 py-4">
+    <div className="min-h-screen bg-black text-white">
+      <nav className="border-b border-white/10 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <Shield className="text-blue-400" size={20} />
+            <Shield className="text-white/60" size={20} />
             <span className="font-bold">GSOC AI</span>
           </Link>
         </div>
@@ -21,7 +21,7 @@ export default function Privacy() {
 
       <main className="max-w-4xl mx-auto px-6 py-16">
         <h1 className="text-4xl font-bold mb-2">Privacy Policy</h1>
-        <p className="text-slate-400 mb-10">Effective date: {EFFECTIVE_DATE}</p>
+        <p className="text-white/50 mb-10">Effective date: {EFFECTIVE_DATE}</p>
 
         <div className="space-y-8 text-slate-300 leading-relaxed">
 
@@ -93,7 +93,7 @@ export default function Privacy() {
             <h2 className="text-xl font-semibold text-white mb-3">5. Third-Party Services</h2>
             <p>We use the following sub-processors:</p>
             <ul className="list-disc list-inside space-y-2 ml-2 mt-2">
-              <li><strong>Stripe</strong> — payment processing. <a href="https://stripe.com/privacy" className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">Stripe Privacy Policy</a></li>
+              <li><strong>Stripe</strong> — payment processing. <a href="https://stripe.com/privacy" className="text-white/60 hover:underline" target="_blank" rel="noopener noreferrer">Stripe Privacy Policy</a></li>
               <li><strong>Anthropic</strong> — AI triage (your app connects directly to Anthropic using your API key; we are not in that data path)</li>
             </ul>
           </section>
@@ -122,7 +122,7 @@ export default function Privacy() {
               Depending on your jurisdiction, you may have rights including: access to your personal data, correction
               of inaccurate data, deletion of your data (&quot;right to be forgotten&quot;), portability, and objection to
               certain processing. To exercise these rights, email{" "}
-              <a href="mailto:privacy@gsocai.com" className="text-blue-400 hover:underline">privacy@gsocai.com</a>.
+              <a href="mailto:privacy@gsocai.com" className="text-white/60 hover:underline">privacy@gsocai.com</a>.
               We will respond within 30 days.
             </p>
           </section>
@@ -156,13 +156,13 @@ export default function Privacy() {
             <h2 className="text-xl font-semibold text-white mb-3">12. Contact</h2>
             <p>
               For privacy inquiries, contact our Data Protection contact at{" "}
-              <a href="mailto:privacy@gsocai.com" className="text-blue-400 hover:underline">privacy@gsocai.com</a>.
+              <a href="mailto:privacy@gsocai.com" className="text-white/60 hover:underline">privacy@gsocai.com</a>.
             </p>
           </section>
         </div>
       </main>
 
-      <footer className="border-t border-slate-800 py-8 px-6 text-center text-sm text-slate-500">
+      <footer className="border-t border-white/10 py-8 px-6 text-center text-sm text-white/30">
         <Link href="/" className="hover:text-slate-300 transition-colors">← Back to GSOC AI</Link>
         {" · "}
         <Link href="/tos" className="hover:text-slate-300 transition-colors">Terms of Service</Link>

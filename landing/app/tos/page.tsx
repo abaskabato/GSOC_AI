@@ -9,11 +9,11 @@ export const metadata = {
 
 export default function TOS() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <nav className="border-b border-slate-800 px-6 py-4">
+    <div className="min-h-screen bg-black text-white">
+      <nav className="border-b border-white/10 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <Shield className="text-blue-400" size={20} />
+            <Shield className="text-white/60" size={20} />
             <span className="font-bold">GSOC AI</span>
           </Link>
         </div>
@@ -21,7 +21,7 @@ export default function TOS() {
 
       <main className="max-w-4xl mx-auto px-6 py-16">
         <h1 className="text-4xl font-bold mb-2">Terms of Service</h1>
-        <p className="text-slate-400 mb-10">Effective date: {EFFECTIVE_DATE}</p>
+        <p className="text-white/50 mb-10">Effective date: {EFFECTIVE_DATE}</p>
 
         <div className="prose prose-invert prose-slate max-w-none space-y-8 text-slate-300 leading-relaxed">
 
@@ -193,13 +193,13 @@ export default function TOS() {
             <h2 className="text-xl font-semibold text-white mb-3">16. Contact</h2>
             <p>
               For questions about these Terms, contact us at{" "}
-              <a href="mailto:legal@gsocai.com" className="text-blue-400 hover:underline">legal@gsocai.com</a>.
+              <a href="mailto:legal@gsocai.com" className="text-white/60 hover:underline">legal@gsocai.com</a>.
             </p>
           </section>
         </div>
       </main>
 
-      <footer className="border-t border-slate-800 py-8 px-6 text-center text-sm text-slate-500">
+      <footer className="border-t border-white/10 py-8 px-6 text-center text-sm text-white/30">
         <Link href="/" className="hover:text-slate-300 transition-colors">← Back to GSOC AI</Link>
         {" · "}
         <Link href="/privacy" className="hover:text-slate-300 transition-colors">Privacy Policy</Link>

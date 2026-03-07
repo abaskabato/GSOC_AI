@@ -53,11 +53,11 @@ function CheckoutForm() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
-      <nav className="border-b border-slate-800 px-6 py-4">
+    <div className="min-h-screen bg-black text-white flex flex-col">
+      <nav className="border-b border-white/10 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <Shield className="text-blue-400" size={20} />
+            <Shield className="text-white/70" size={20} />
             <span className="font-bold">GSOC AI</span>
           </Link>
           <span className="text-slate-600 ml-2">/ Checkout</span>
@@ -67,26 +67,26 @@ function CheckoutForm() {
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-4xl grid md:grid-cols-2 gap-8">
           {/* Plan summary */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8">
-            <div className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">Your Plan</div>
+          <div className="border border-white/10 rounded-2xl p-8">
+            <div className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-2">Your Plan</div>
             <h2 className="text-2xl font-bold mb-1">{plan.name}</h2>
-            <p className="text-slate-400 text-sm mb-6">{plan.desc}</p>
+            <p className="text-white/50 text-sm mb-6">{plan.desc}</p>
 
             <div className="flex items-end gap-1 mb-8">
               <span className="text-5xl font-extrabold">${plan.price.toLocaleString()}</span>
-              <span className="text-slate-400 mb-1">/month</span>
+              <span className="text-white/40 mb-1">/month</span>
             </div>
 
             <ul className="space-y-3 mb-6">
               {plan.features.map((f) => (
-                <li key={f} className="flex items-center gap-2 text-sm text-slate-300">
-                  <CheckCircle className="text-blue-400 shrink-0" size={16} />
+                <li key={f} className="flex items-center gap-2 text-sm text-white/70">
+                  <CheckCircle className="text-white/50 shrink-0" size={16} />
                   {f}
                 </li>
               ))}
             </ul>
 
-            <div className="bg-blue-950/40 border border-blue-700/30 rounded-xl p-4 text-sm text-blue-300">
+            <div className="border border-white/10 rounded-xl p-4 text-sm text-white/50">
               14-day free trial — your card will not be charged until the trial ends. Cancel anytime.
             </div>
 
@@ -110,7 +110,7 @@ function CheckoutForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-white/50 transition-colors"
                 />
               </div>
 
@@ -124,7 +124,7 @@ function CheckoutForm() {
                   value={orgName}
                   onChange={(e) => setOrgName(e.target.value)}
                   placeholder="Acme Corp"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-white/50 transition-colors"
                 />
               </div>
 
@@ -136,8 +136,8 @@ function CheckoutForm() {
                     onChange={(e) => { setAgreed(e.target.checked); if (e.target.checked) setError(null); }}
                     className="sr-only"
                   />
-                  <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${agreed ? "bg-blue-600 border-blue-600" : "border-slate-600 bg-slate-800 group-hover:border-slate-500"}`}>
-                    {agreed && <CheckCircle size={12} className="text-white" />}
+                  <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${agreed ? "bg-white border-white" : "border-white/20 bg-white/5 group-hover:border-white/40"}`}>
+                    {agreed && <CheckCircle size={12} className="text-black" />}
                   </div>
                 </div>
                 <span className="text-sm text-slate-400 leading-snug">
@@ -157,11 +157,11 @@ function CheckoutForm() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                className="w-full bg-white hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed text-black font-semibold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-4 w-4 text-black" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                     </svg>
