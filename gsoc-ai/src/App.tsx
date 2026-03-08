@@ -14,10 +14,11 @@ import Settings from './pages/Settings';
 import Integrations from './pages/Integrations';
 import Training from './pages/Training';
 import {
-  Shield, Map, Phone, FileText, Wrench,
+  Map, Phone, FileText, Wrench,
   Settings as SettingsIcon, Monitor, AlertTriangle, Plug,
   LogOut, User, KeyRound, BookOpen,
 } from 'lucide-react';
+import Logo from './components/Logo';
 
 function Sidebar() {
   const { businessName } = useApp();
@@ -37,7 +38,7 @@ function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <h1><Shield size={24} style={{ display: 'inline', marginRight: '8px' }} />GSOC AI</h1>
+        <h1><Logo size={28} />GSOC AI</h1>
         <span>{businessName}</span>
       </div>
       <nav className="sidebar-nav">
